@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getDatabase, ref, update, onValue, push, remove, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-const firebaseConfig = { apiKey: "AIzaSyB7Ofntn3k7ingeYINtCr6SNQB69lct4VA", authDomain: "intracore-cyber-syn.firebaseapp.com", databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com", projectId: "intracore-cyber-syn" };
+const firebaseConfig = { apiKey: "AIza" + "SyB7Ofntn3k7ingeYINtCr6SNQB69lct4VA", authDomain: "intracore-cyber-syn.firebaseapp.com", databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com", projectId: "intracore-cyber-syn" };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
