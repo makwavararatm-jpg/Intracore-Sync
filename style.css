@@ -1,0 +1,179 @@
+/* --- Global Resets --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body, html {
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* Fixes the dashboard so it never scrolls */
+    background-color: #1a1a2e; /* Deep Cyber-Sync Blue */
+    color: white;
+    user-select: none; /* Prevents users from highlighting text */
+    -webkit-user-select: none;
+}
+
+/* --- Main Layout --- */
+.split-screen-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* --- Marketing Carousel (Left Side) --- */
+.marketing-showcase {
+    flex: 1; /* Takes up all remaining space */
+    position: relative;
+    background-color: #0f3460;
+    overflow: hidden;
+}
+
+.slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out; /* Smooth crossfade effect */
+    display: flex;
+    align-items: flex-end;
+    pointer-events: none; /* Prevents dragging the images */
+}
+
+.slide.active {
+    opacity: 1;
+    z-index: 1;
+}
+
+/* Dark overlay for text readability */
+.slide::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top, rgba(26, 26, 46, 0.95) 0%, rgba(26, 26, 46, 0.2) 60%);
+    z-index: 2;
+}
+
+.slide-content {
+    position: relative;
+    z-index: 3;
+    padding: 60px;
+    margin-bottom: 20px;
+}
+
+.slide-content h2 {
+    font-size: 3.5rem;
+    color: #e94560; /* Cyber-Sync Accent Red */
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.slide-content p {
+    font-size: 1.2rem;
+    max-width: 600px;
+    line-height: 1.6;
+    color: #ffffff;
+    opacity: 0.9;
+}
+
+/* --- Static Status Dashboard (Right Side) --- */
+.login-section {
+    flex: 0 0 480px; /* Exact fixed width for a static feel */
+    background-color: #16213e;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-left: 2px solid #0f3460;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.status-box {
+    width: 85%;
+    text-align: center;
+}
+
+.brand-name {
+    font-size: 0.9rem;
+    color: #e94560;
+    font-weight: 800;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.main-title {
+    font-size: 2.8rem;
+    margin-bottom: 50px;
+    font-weight: 300;
+}
+
+/* The pulse container for the PC Status */
+.status-indicator {
+    padding: 40px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    border: 1px solid rgba(233, 69, 96, 0.2);
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: all 0.5s ease;
+}
+
+#status-text {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #e94560;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.status-subtext {
+    font-size: 1rem;
+    opacity: 0.5;
+    margin-bottom: 20px;
+}
+
+/* Animation for the "Locked" state */
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(233, 69, 96, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0); }
+}
+
+.status-locked {
+    animation: pulse-red 2.5s infinite;
+    border-color: rgba(233, 69, 96, 0.5);
+}
+
+/* Footer Section */
+.footer-info {
+    position: absolute;
+    bottom: 30px;
+    font-size: 0.75rem;
+    opacity: 0.4;
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1024px) {
+    .login-section {
+        flex: 0 0 350px;
+    }
+    .slide-content h2 {
+        font-size: 2.5rem;
+    }
+}

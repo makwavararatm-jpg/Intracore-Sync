@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Blessmas Wi-Fi</title>
+  <style>
+    /* --- MODERN MOBILE-FIRST STYLES --- */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #0f3460; /* Matches your dashboard aesthetic */
+        background-image: radial-gradient(circle at 50% -20%, #1a4b8c 0%, #0f3460 100%);
+        color: #ffffff; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        min-height: 100vh; 
+        margin: 0; 
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .login-card { 
+        background: #ffffff; 
+        color: #111827; 
+        padding: 40px 30px; 
+        border-radius: 16px; 
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4); 
+        width: 100%; 
+        max-width: 360px; 
+        text-align: center; 
+    }
+
+    .brand h1 { 
+        margin: 0; 
+        font-size: 2.2rem; 
+        color: #0f3460; 
+        letter-spacing: 0.5px; 
+        font-weight: 700;
+    }
+    .brand span { color: #38bdf8; }
+    
+    .subtitle { 
+        color: #6b7280; 
+        font-size: 0.95rem; 
+        margin-top: 5px; 
+        margin-bottom: 30px; 
+    }
+
+    .input-group { 
+        margin-bottom: 20px; 
+        text-align: left; 
+    }
+    .input-group label { 
+        display: block; 
+        font-size: 0.85rem; 
+        font-weight: 600; 
+        color: #4b5563; 
+        margin-bottom: 8px; 
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .voucher-input { 
+        width: 100%; 
+        padding: 15px; 
+        font-size: 1.8rem; 
+        letter-spacing: 6px; 
+        text-align: center; 
+        border: 2px solid #d1d5db; 
+        border-radius: 8px; 
+        outline: none; 
+        transition: all 0.2s; 
+        box-sizing: border-box; 
+        font-family: monospace; 
+        text-transform: uppercase;
+        font-weight: 600;
+        color: #111827;
+    }
+    .voucher-input:focus { 
+        border-color: #0ea5e9; 
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+    }
+    .voucher-input::placeholder { color: #d1d5db; font-weight: 400; }
+
+    .btn-connect { 
+        background: #0ea5e9; 
+        color: #ffffff; 
+        border: none; 
+        width: 100%; 
+        padding: 16px; 
+        font-size: 1.1rem; 
+        font-weight: 600; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        transition: background 0.2s, transform 0.1s; 
+        box-shadow: 0 4px 6px rgba(14, 165, 233, 0.25);
+    }
+    .btn-connect:hover { background: #0284c7; }
+    .btn-connect:active { transform: scale(0.98); }
+
+    .footer-info { 
+        margin-top: 30px; 
+        font-size: 0.8rem; 
+        color: #9ca3af; 
+        line-height: 1.5;
+    }
+    .footer-info a { color: #0ea5e9; text-decoration: none; font-weight: 500;}
+
+    /* --- MIKROTIK ERROR ALERT --- */
+    .error-msg { 
+        background: #fee2e2; 
+        color: #b91c1c; 
+        padding: 12px; 
+        border-radius: 8px; 
+        font-size: 0.85rem; 
+        font-weight: 500;
+        margin-bottom: 20px; 
+        display: none; 
+        border: 1px solid #f87171;
+    }
+
+    /* --- SHAKE ANIMATION FOR WRONG VOUCHER --- */
+    @keyframes shake { 
+        0%, 100% { transform: translateX(0); } 
+        25% { transform: translateX(-8px); } 
+        75% { transform: translateX(8px); } 
+    }
+    .shake { animation: shake 0.3s ease-in-out; }
+    .input-error { border-color: #ef4444 !important; color: #ef4444; }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <div class="brand">
+      <h1>Blessmas <span>Wi-Fi</span></h1>
+      <div class="subtitle">Enter your token code to connect</div>
+    </div>
+
+    <div class="error-msg" id="error-box">$(error)</div>
+
+    <form name="login" action="$(link-login-only)" method="post" onsubmit="return prepareVoucher()">
+      <input type="hidden" name="dst" value="$(link-orig)" />
+      <input type="hidden" name="popup" value="true" />
+      
+      <div class="input-group">
+        <label for="voucher">Access Token</label>
+        <input type="text" id="voucher" name="username" class="voucher-input" placeholder="XXXXX" required autocomplete="off" autocorrect="off" autocapitalize="characters" value="$(username)">
+        
+        <input type="hidden" id="password" name="password" value="">
+      </div>
+
+      <button type="submit" class="btn-connect">Connect to Internet</button>
+    </form>
+
+    <div class="footer-info">
+      Powered by IntraCore.Digital<br>
+      Need support? 📞 <a href="tel:+263771844201">+263 771 844 201</a>
+    </div>
+  </div>
+
+  <script>
+    // 1. Copy the typed voucher code into the hidden password field before sending to MikroTik
+    function prepareVoucher() {
+        var vCode = document.getElementById('voucher').value.trim().toUpperCase();
+        document.getElementById('voucher').value = vCode; // Ensure it sends as uppercase
+        document.getElementById('password').value = vCode; // Make password identical to voucher
+        return true;
+    }
+
+    // 2. Check for MikroTik Errors when the page loads
+    window.onload = function() {
+        var errorText = "$(error)";
+        // If there is an actual error message from the router...
+        if (errorText && errorText !== "" && errorText !== "$(error)") {
+            var errorBox = document.getElementById('error-box');
+            var voucherInput = document.getElementById('voucher');
+            
+            // Clean up common MikroTik error jargon to be more customer-friendly
+            if (errorText.indexOf("invalid password") !== -1 || errorText.indexOf("not found") !== -1) {
+                errorText = "Invalid token code. Please try again.";
+            } else if (errorText.indexOf("uptime limit") !== -1) {
+                errorText = "This token has expired.";
+            }
+            
+            // Show the red error box
+            errorBox.innerText = errorText;
+            errorBox.style.display = 'block';
+            
+            // Trigger the UI shake animation and turn the box red
+            voucherInput.classList.add('input-error', 'shake');
+            setTimeout(function() {
+                voucherInput.classList.remove('shake');
+            }, 300);
+        }
+        
+        // Auto-focus the keyboard for the user
+        document.getElementById('voucher').focus();
+    };
+  </script>
+
+</body>
+</html>

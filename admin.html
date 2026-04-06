@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blessmas Investments Dashboard</title>
+  <style>
+    /* --- FLAT MINIMALIST CSS (TAILWIND STYLE) --- */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    body { font-family: 'Inter', sans-serif; background-color: #f9fafb; margin: 0; display: flex; overflow-x: hidden; color: #111827; font-size: 14px; }
+
+    /* --- LOGIN OVERLAY --- */
+    #login-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f3460; z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; }
+    .login-card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; color: #111827; width: 280px; }
+    .login-card h2 { margin-top: 0; font-size: 1.4rem; color: #0f3460; font-weight: 600;}
+    .pin-input { font-size: 1.8rem; letter-spacing: 12px; text-align: center; width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin: 15px 0; font-family: monospace; outline: none; }
+    .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 10px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+    /* --- SIDEBAR --- */
+    .sidebar { width: 220px; background: #0f3460; color: white; height: 100vh; position: fixed; display: flex; flex-direction: column; z-index: 100;}
+    .sidebar-brand { padding: 20px 15px; font-size: 1.3rem; font-weight: 700; text-align: left; color: white; margin-bottom: 5px;}
+    .sidebar-brand span { color: #38bdf8; }
+    .nav-menu { list-style: none; padding: 0 10px; margin: 0; }
+    .nav-item { padding: 10px 12px; margin-bottom: 2px; font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #94a3b8; border-radius: 6px; }
+    .nav-item:hover { background-color: rgba(255,255,255,0.05); color: white; }
+    .nav-item.active { background: rgba(255,255,255,0.1); color: #ffffff; }
+    .sidebar-footer { margin-top: auto; padding: 15px; font-size: 0.75rem; text-align: center; color: #64748b; }
+
+    /* --- MAIN CONTENT & LAYOUT --- */
+    .main-content { margin-left: 220px; padding: 20px 30px; width: calc(100% - 220px); box-sizing: border-box; min-height: 100vh; }
+    .header { background: transparent; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #111827;}
+    .user-profile { display: flex; align-items: center; gap: 10px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .btn-logout { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;}
+    
+    .app-section { display: none; }
+    .app-section.active-section { display: block; animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Quick Actions */
+    .quick-btn { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: #111827; }
+    .quick-btn:hover { background: #e5e7eb; }
+
+    /* --- DASHBOARD METRICS (FULL WIDTH GRID) --- */
+    .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; width: 100%; }
+    
+    @media (max-width: 1100px) {
+        .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+        .feed-card { grid-column: span 2 !important; }
+    }
+
+    .metric-card { background: white; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; text-align: left; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .metric-title { color: #4b5563; font-size: 0.95rem; font-weight: 400; margin-bottom: 8px; }
+    .metric-value { font-size: 1.5rem; font-weight: 700; color: #000000; margin: 0; }
+
+    #dash-profit { font-size: 1.5rem; font-weight: 700; }
+
+    .feed-card { background: white; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; height: 300px; display: flex; flex-direction: column; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .feed-card h3 { font-size: 1.1rem; font-weight: 600; margin-top: 0; margin-bottom: 15px; color: #000000;}
+    .feed-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+    .feed-item { padding: 10px 0; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+    .feed-time { color: #9ca3af; font-size: 0.8rem; }
+    .feed-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 10px; }
+    .badge-pos { background: #e0f2fe; color: #0284c7; }
+    .badge-wifi { background: #dcfce7; color: #15803d; }
+    .badge-pc { background: #fef3c7; color: #b45309; }
+    .badge-finance { background: #f3e8ff; color: #7e22ce; }
+    .badge-system { background: #f3f4f6; color: #374151; }
+
+    /* --- PC GRID STYLES --- */
+    .pc-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; width: 100%;}
+    .pc-node { background: white; border-radius: 8px; padding: 15px; text-align: left; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .pc-node.free { border-left: 3px solid #fca5a5; }
+    .pc-node.active { border-left: 3px solid #86efac; }
+    .pc-node-title { font-weight: 600; font-size: 1rem; color: #111827; margin-bottom: 5px; }
+    .pc-node-time { font-family: monospace; font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: 8px; min-height: 24px; }
+    .pc-node-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-bottom: 10px;}
+    .status-free { background: #fee2e2; color: #ef4444; }
+    .status-active { background: #dcfce7; color: #16a34a; }
+    .pc-controls { display: flex; gap: 6px; flex-wrap: wrap;}
+    .pc-controls button { padding: 6px; font-size: 0.75rem; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; background: white; flex-grow: 1; font-weight: 500;}
+    .pc-controls button.stop { background: #fee2e2; color: #ef4444; border-color: #fca5a5; width: 100%;}
+
+    /* --- MODULE STYLES (Cards, Tables) --- */
+    .grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .pc-card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; width: 320px; padding: 20px; text-align: left; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .pc-title { font-size: 1.2rem; color: #111827; margin-bottom: 15px; font-weight: 600; }
+    
+    .table-card { width: 100%; margin: 15px 0; background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .table-card h2 { margin-top: 0; color: #111827; font-size: 1.2rem; margin-bottom: 15px; font-weight: 600;}
+    
+    .voucher-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .voucher-table th { background-color: #f9fafb; color: #6b7280; font-weight: 500; font-size: 0.75rem; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    .voucher-table td { padding: 12px; border-bottom: 1px solid #f3f4f6; color: #111827; font-size: 0.85rem; vertical-align: middle; }
+    
+    .badge-active-small { background: #dcfce7; color: #16a34a; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+    .badge-neutral { background: #f3f4f6; color: #4b5563; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+    .btn-print { background: white; border: 1px solid #d1d5db; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; cursor:pointer;}
+    .btn-action { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 2px; margin-right: 5px; border-radius: 4px;}
+
+    /* POS Styles */
+    .pos-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; width: 100%;}
+    .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+    .item-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px 10px; text-align: center; cursor: pointer; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .item-card:hover { border-color: #0ea5e9; }
+    .item-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .item-name { font-weight: 500; color: #111827; font-size: 0.9rem; margin-bottom: 4px;}
+    .item-price { color: #10b981; font-weight: 600; font-size: 0.95rem;}
+    
+    .cart-panel { background: white; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; height: 100%; min-height: 350px; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
+    .cart-items { flex-grow: 1; border-bottom: 1px solid #e5e7eb; margin-bottom: 15px; padding-bottom: 10px; overflow-y: auto; }
+    .cart-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; color: #374151;}
+    .cart-total { font-size: 1.2rem; font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 15px; color: #111827; }
+    .btn-checkout { background: #10b981; color: white; width: 100%; padding: 12px; font-size: 1rem; font-weight: 600; border-radius: 6px; cursor:pointer; border:none;}
+
+    /* --- SLIDING SIDE PANELS --- */
+    .side-panel { position: fixed; top: 0; right: -350px; width: 320px; height: 100vh; background: #ffffff; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index: 1000; transition: right 0.3s ease; padding: 25px; box-sizing: border-box; overflow-y: auto; border-left: 1px solid #e5e7eb;}
+    .side-panel.open { right: 0; }
+    .panel-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.4); z-index: 999; display: none; opacity: 0;}
+    .panel-overlay.open { display: block; opacity: 1; }
+    .form-group { margin-bottom: 15px;}
+    .form-group label { display: block; font-weight: 500; color: #374151; margin-bottom: 5px; font-size: 0.85rem;}
+    .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem;}
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #0ea5e9; }
+    .btn-save, .btn-primary { color: white; width: 100%; padding: 10px; font-size: 0.95rem; font-weight: 600; border-radius: 6px; margin-top: 10px; border:none; cursor:pointer;}
+    .btn-save { background: #10b981; } 
+    .btn-primary { background: #0f3460; }
+
+    .live-dot { display: inline-block; width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+
+    /* --- MOBILE RESPONSIVE PATCH --- */
+    .mobile-menu-btn { display: none; }
+    @media (max-width: 768px) {
+        .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; width: 250px; }
+        .sidebar.mobile-open { transform: translateX(0); }
+        .main-content { margin-left: 0; width: 100%; padding: 15px; }
+        .dashboard-grid { grid-template-columns: 1fr !important; }
+        .header { flex-direction: column; align-items: flex-start; gap: 15px; }
+        .pos-grid { grid-template-columns: 1fr; }
+        .table-card { overflow-x: auto; }
+        .mobile-menu-btn { display: inline-block !important; background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; margin-right: 10px; color: #111827; }
+        .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login-overlay">
+    <h1 style="margin-bottom: 5px; letter-spacing: 2px;">Blessmas <span style="color: #38bdf8;">Sync</span></h1>
+    <p style="color: #cbd5e1; margin-bottom: 30px;">Authorized Staff Only</p>
+    <div class="login-card">
+        <h2>Clock In</h2>
+        <p style="color: #6b7280; font-size: 0.85rem; margin-top: 0;">Enter your 4-digit assigned PIN</p>
+        <form onsubmit="event.preventDefault(); window.processLogin();">
+            <input type="password" id="login-pin" class="pin-input" maxlength="4" placeholder="••••" required autocomplete="off">
+            <button type="submit" class="btn-login">Unlock POS</button>
+        </form>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-brand">Blessmas <span>Sync</span></div>
+    <ul class="nav-menu">
+      <li class="nav-item active" onclick="window.switchTab('dashboard', this)">📊 Dashboard</li>
+      <li class="nav-item" onclick="window.switchTab('network', this)"><span class="live-dot" style="margin-right: 10px;"></span>Live Network</li>
+      <li class="nav-item" onclick="window.switchTab('pc', this)">💻 PC Stations</li>
+      <li class="nav-item" onclick="window.switchTab('hotspot', this)">📡 Wi-Fi Hotspot</li>
+      <li class="nav-item" onclick="window.switchTab('pos', this)">🛒 Point of Sale</li>
+      
+      <li class="nav-item" id="nav-finances" onclick="window.switchTab('finances', this)">💸 Finances</li>
+      <li class="nav-item" id="nav-shifts" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 10px;" onclick="window.switchTab('shifts', this)">⏱️ Shift Reports</li>
+      <li class="nav-item" id="nav-staff" onclick="window.switchTab('staff', this)">👥 Staff Management</li>
+      <li class="nav-item" id="nav-settings" onclick="window.switchTab('settings', this)">⚙️ Settings</li>
+    </ul>
+    <div class="sidebar-footer">v3.1.0 Flat<br>© 2026 IntraCore.Digital</div>
+  </div>
+
+  <div class="main-content">
+    
+    <div class="header">
+        <div style="display: flex; align-items: center;">
+            <button class="mobile-menu-btn" onclick="window.toggleSidebar()">☰</button>
+            <h1 id="page-title">Analytics Dashboard</h1>
+        </div>
+        <div class="user-profile">
+            <span style="font-size: 1.1rem;">👤</span>
+            <div>
+                <div style="font-weight: 600; color: #111827; font-size: 0.9rem;" id="active-user-name">Loading...</div>
+                <div style="color: #16a34a; font-size: 0.7rem; font-weight: 600;" id="shift-status-text">Shift Active</div>
+            </div>
+            <button class="btn-logout" onclick="window.clockOut()">Clock Out</button>
+        </div>
+    </div>
+
+    <div id="sec-dashboard" class="app-section active-section">
+      
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-size: 1.1rem; color: #111827; margin: 0 0 12px 0; font-weight: 600;">⚡ Quick Actions</h3>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="quick-btn" onclick="window.switchTab('hotspot', document.querySelectorAll('.nav-item')[3])">🎟️ Sell Token</button>
+          <button class="quick-btn" onclick="window.switchTab('pos', document.querySelectorAll('.nav-item')[4])">🛒 Open POS</button>
+          <button class="quick-btn" onclick="window.switchTab('pc', document.querySelectorAll('.nav-item')[2])">💻 Manage PCs</button>
+          <button class="quick-btn" onclick="window.openPanel('bulk-generate')" style="border-color: #0ea5e9; color: #0ea5e9;">🖨️ Bulk Print</button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid" id="admin-revenue-row">
+        <div class="metric-card"><div class="metric-title">Total Revenue</div><div class="metric-value" id="dash-total-rev">$0.00</div></div>
+        <div class="metric-card"><div class="metric-title">Wi-Fi Revenue</div><div class="metric-value" id="dash-wifi-rev" style="color: #0284c7;">$0.00</div></div>
+        <div class="metric-card"><div class="metric-title">POS Revenue</div><div class="metric-value" id="dash-pos-rev" style="color: #16a34a;">$0.00</div></div>
+        <div class="metric-card"><div class="metric-title">PC Revenue</div><div class="metric-value" id="dash-pc-rev" style="color: #ea580c;">$0.00</div></div>
+      </div>
+
+      <div class="dashboard-grid">
+         <div class="metric-card" id="card-profit" style="border-left: 4px solid #10b981;"><div class="metric-title">Net Profit (After Expenses)</div><div class="metric-value" id="dash-profit" style="color: #10b981;">$0.00</div></div>
+         <div class="feed-card" style="grid-column: span 3; height: 300px;">
+            <h3 style="margin-top: 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; color: #111827;">⚡ Live Activity Stream</h3>
+            <ul class="feed-list" id="activity-stream"><li style="color: #9ca3af; text-align: center; padding-top: 20px;">Monitoring network activity...</li></ul>
+         </div>
+      </div>
+    </div>
+
+    <div id="sec-pc" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">💻 PC Station Control</h2>
+            <button onclick="window.deployNewPC()" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Add Workstation</button>
+        </div>
+        
+        <div class="pc-grid-container" id="multi-pc-grid">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #6b7280;">Loading workstations...</div>
+        </div>
+    </div>
+
+    <div id="sec-staff" class="app-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">👥 Staff Directory & Access Control</h2><button onclick="window.openPanel('staff')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Add Staff Member</button></div>
+      <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><table class="voucher-table"><thead><tr><th>Staff Name</th><th>System Role</th><th>Login PIN</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="staff-list"><tr><td colspan="4">Loading staff directory...</td></tr></tbody></table></div>
+    </div>
+
+    <div id="sec-shifts" class="app-section">
+      <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="metric-card" style="border-left: 4px solid #0ea5e9;">
+            <div class="metric-title">Current Shift Sales (Cash Expected)</div>
+            <div class="metric-value" id="current-shift-sales" style="color: #0ea5e9;">$0.00</div>
+            <p style="color: #6b7280; font-size: 0.85rem; margin:8px 0 0 0;">Money collected by <span id="shift-user-display" style="font-weight:600; color:#111827;">User</span> since clock-in.</p>
+          </div>
+      </div>
+      <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📋 Shift History & Audit Log</h2><table class="voucher-table"><thead><tr><th>Cashier Name</th><th>Clock In</th><th>Clock Out</th><th>Total Shift Sales</th><th>Status</th></tr></thead><tbody id="shifts-list"><tr><td colspan="5">Loading shift records...</td></tr></tbody></table></div>
+    </div>
+
+    <div id="sec-network" class="app-section">
+        <div class="dashboard-grid">
+          <div class="metric-card" style="border-left: 4px solid #0ea5e9;"><div class="metric-title">Total Cafe Download</div><div class="metric-value" id="total-down-speed" style="color: #0ea5e9;">0.00 Mbps</div></div>
+          <div class="metric-card" style="border-left: 4px solid #f59e0b;"><div class="metric-title">Total Cafe Upload</div><div class="metric-value" id="total-up-speed" style="color: #f59e0b;">0.00 Mbps</div></div>
+          <div class="metric-card" style="border-left: 4px solid #10b981;"><div class="metric-title">Active Connections</div><div class="metric-value" id="network-active-count">0</div></div>
+        </div>
+        <div class="table-card" style="width: 100%; max-width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;"><span class="live-dot"></span> Connected Devices</h2><span style="color: #10b981; font-size: 0.85rem;">(Live Data)</span></div><table class="voucher-table"><thead><tr><th>Status</th><th>Voucher Code</th><th>Device MAC/IP</th><th>⬇️ Download</th><th>⬆️ Upload</th><th>⏳ Time Left</th><th>Action</th></tr></thead><tbody id="live-network-list"><tr><td colspan="7" style="text-align: center; color: #9ca3af;">Loading telemetry data...</td></tr></tbody></table></div>
+      </div>
+  
+      <div id="sec-finances" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📋 Financial Ledger</h2><button onclick="window.openPanel('finance')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Log Transaction</button></div>
+        <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><table class="voucher-table"><thead><tr><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Time</th></tr></thead><tbody id="transactions-list"><tr><td colspan="5">Loading ledger...</td></tr></tbody></table></div>
+      </div>
+  
+      <div id="sec-hotspot" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📡 Wi-Fi Hotspot</h2>
+            <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2);">➕ Generate New Token</button>
+        </div>
+        
+        <div class="table-card" style="max-width: 100%; margin-top: 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">📜 Recent Vouchers</h2>
+            </div>
+            <table class="voucher-table">
+                <thead><tr><th>Code</th><th>Package</th><th>Delivery</th><th>Status</th><th>Generated</th><th>Action</th></tr></thead>
+                <tbody id="voucher-list"><tr><td colspan="6">Loading vouchers...</td></tr></tbody>
+            </table>
+        </div>
+      </div>
+  
+      <div id="sec-pos" class="app-section">
+        <div class="pos-grid">
+          <div><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600; margin-bottom: 15px;">Cafe Items & Services</h2><div class="items-grid"><div class="item-card" onclick="window.addToCart('A4 Print (B&W)', 0.10)"><div class="item-icon">📄</div><div class="item-name">Print B&W</div><div class="item-price">$0.10</div></div><div class="item-card" onclick="window.addToCart('A4 Print (Color)', 0.50)"><div class="item-icon">🖼️</div><div class="item-name">Print Color</div><div class="item-price">$0.50</div></div><div class="item-card" onclick="window.addToCart('Coca-Cola 500ml', 1.00)"><div class="item-icon">🥤</div><div class="item-name">Coca-Cola</div><div class="item-price">$1.00</div></div><div class="item-card" onclick="window.addToCart('Potato Chips', 1.50)"><div class="item-icon">🍟</div><div class="item-name">Chips</div><div class="item-price">$1.50</div></div></div></div>
+          <div class="cart-panel"><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Current Order</h2><div id="cart-items-list" class="cart-items"><p style="color: #9ca3af; text-align: center; margin-top: 50px;">Cart is empty</p></div><div class="cart-total"><span>Total:</span><span id="cart-total-price">$0.00</span></div><button class="btn-checkout" onclick="window.checkoutCart()">Complete Sale</button></div>
+        </div>
+      </div>
+  
+      <div id="sec-settings" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📦 Active Voucher Profiles</h2><button onclick="window.openPanel('settings')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Create New Package</button></div>
+        <div class="table-card" style="width: 100%; max-width: 100%; margin-top:0;"><table class="voucher-table"><thead><tr><th>Package Name</th><th>Price</th><th>Time Limit</th><th>Data Quota</th><th>Speed Limit</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="packages-list"><tr><td colspan="6">Loading packages...</td></tr></tbody></table></div>
+      </div>
+
+  </div>
+
+  <div class="panel-overlay" id="panel-overlay" onclick="window.closeAllPanels()"></div>
+
+  <div class="side-panel" id="panel-generate-token">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">🎟️ Generate Token</h2>
+        <button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button>
+    </div>
+    
+    <div style="text-align: center; margin-bottom: 20px; background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <div id="generated-token" style="font-size: 2.5rem; color: #10b981; letter-spacing: 6px; font-family: monospace; font-weight: 700;">------</div>
+        <input type="text" id="customer-phone" placeholder="📞 Phone Number (Optional)" style="margin-top: 15px; margin-bottom: 10px; padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.95rem; text-align: center; box-sizing: border-box;">
+        <p style="color: #6b7280; margin-top: 0; font-size: 0.85rem;">Click a package below to generate</p>
+    </div>
+    
+    <div id="dynamic-package-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+        <p style="color: #9ca3af; font-size: 0.85rem; text-align: center;">Loading packages...</p>
+    </div>
+  </div>
+
+  <div class="side-panel" id="panel-bulk-generate">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">🖨️ Bulk Print Vouchers</h2>
+        <button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button>
+    </div>
+    
+    <form id="bulk-form" onsubmit="event.preventDefault(); window.generateBulkTokens();">
+        <div class="form-group">
+            <label>Select Package to Print</label>
+            <select id="bulk-pkg-select" required>
+                <option value="">Loading...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Quantity to Generate</label>
+            <input type="number" id="bulk-qty" min="1" max="100" value="20" required>
+        </div>
+        <button type="submit" class="btn-primary" id="btn-bulk-gen">⚡ Generate & Prepare Sheet</button>
+    </form>
+
+    <div id="bulk-print-preview" style="display:none; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+        <p style="color: #10b981; font-weight: 600; font-size: 1.1rem; margin-top:0;">✅ <span id="bulk-count-display">0</span> Tokens Generated!</p>
+        <p style="color: #6b7280; font-size: 0.85rem;">Ready for the printer. Cut them out to sell.</p>
+        <button onclick="window.printBulkGrid()" style="background: #10b981; color: white; width: 100%; padding: 12px; font-size: 1rem; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; margin-top: 10px;">🖨️ Send to Printer</button>
+    </div>
+  </div>
+
+  <div class="side-panel" id="panel-staff">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 id="staff-form-title" style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">➕ Add Staff</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
+    <form id="staff-form" onsubmit="event.preventDefault(); window.saveStaff();"><div class="form-group"><label>Staff Full Name</label><input type="text" id="staff-name" required placeholder="e.g. Tafadzwa"></div><div class="form-group"><label>4-Digit Login PIN</label><input type="text" id="staff-pin" pattern="[0-9]{4}" title="Must be exactly 4 numbers" required placeholder="1234" maxlength="4"></div><div class="form-group"><label>System Role</label><select id="staff-role"><option value="cashier">Cashier (Sales & Vouchers Only)</option><option value="admin">Administrator (Full Access)</option></select></div><button type="submit" class="btn-primary">💾 Save Staff Member</button></form>
+  </div>
+
+  <div class="side-panel" id="panel-settings">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 id="form-title" style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">➕ New Package</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
+    <form id="package-form" onsubmit="event.preventDefault(); window.savePackage();"><div class="form-group"><label>Package Name</label><input type="text" id="pkg-name" required></div><div class="form-group"><label>Price ($)</label><input type="number" id="pkg-price" step="0.10" required></div><div class="form-group"><label>Time Limit</label><input type="text" id="pkg-time" placeholder="e.g. 1h, 24h, 30d, unlimited" required></div><div class="form-group"><label>Data Quota</label><input type="text" id="pkg-data" required></div><div class="form-group"><label>Speed Limit</label><select id="pkg-speed"><option value="1M/1M">1 Mbps</option><option value="2M/2M" selected>2 Mbps</option><option value="5M/5M">5 Mbps</option><option value="unlimited">Unlimited</option></select></div><button type="submit" class="btn-save">💾 Save Package</button></form>
+  </div>
+
+  <div class="side-panel" id="panel-finance">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">💸 Log Transaction</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
+    <form id="finance-form" onsubmit="event.preventDefault(); window.saveTransaction();"><div class="form-group"><label>Transaction Type</label><select id="trans-type" style="font-weight: 500;"><option value="inflow">🟢 Income (Inflow)</option><option value="outflow">🔴 Expense (Outflow)</option></select></div><div class="form-group"><label>Description</label><input type="text" id="trans-desc" required></div><div class="form-group"><label>Amount ($)</label><input type="number" id="trans-amount" step="0.01" required></div><div class="form-group"><label>Category</label><select id="trans-category"><option value="Services">Services & Sales</option><option value="Supplies">Supplies & Stock</option><option value="Utilities">Utilities</option><option value="Other">Other</option></select></div><button type="submit" id="btn-trans-submit" class="btn-primary">📝 Save Transaction</button></form>
+  </div>
+
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>

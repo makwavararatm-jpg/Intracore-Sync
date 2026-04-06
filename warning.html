@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    /* "transparent" background lets the game show through behind the box */
+    body { margin: 0; overflow: hidden; background: transparent; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: flex-end; padding: 10px; }
+    
+    .warning-box { 
+      background: rgba(198, 40, 40, 0.95); 
+      color: white; 
+      padding: 15px 25px; 
+      border-radius: 8px; 
+      border: 2px solid #ff5252; 
+      font-weight: bold; 
+      font-size: 18px;
+      text-align: center; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+      animation: slideIn 0.5s ease-out; 
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="warning-box">⚠️ 5 Minutes Remaining! ⚠️</div>
+</body>
+</html>

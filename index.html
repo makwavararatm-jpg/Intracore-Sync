@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blessmas Investments | Secure Login</title>
+    <style>
+        /* --- GLOBAL STYLING --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body, html { height: 100%; overflow: hidden; background-color: #0a101d; color: white; }
+
+        .split-screen-container { display: flex; height: 100vh; width: 100vw; }
+
+        /* --- THE MARKETING SIDE (LEFT) --- */
+        .marketing-showcase { flex: 1; position: relative; background-color: #071324; overflow: hidden; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1.5s ease-in-out; display: flex; align-items: flex-end; }
+        .slide.active { opacity: 1; z-index: 1; }
+        .slide::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to top, rgba(7, 19, 36, 1) 0%, rgba(7, 19, 36, 0.4) 50%, rgba(7, 19, 36, 0.1) 100%); z-index: 2; }
+        
+        .slide-content { position: relative; z-index: 3; padding: 60px; width: 100%; }
+        .slide-content h2 { font-size: 3.5rem; color: #00d2ff; margin-bottom: 10px; letter-spacing: 1px; }
+        .slide-content p { font-size: 1.2rem; color: #a0aec0; max-width: 600px; }
+
+        /* --- CSS VISUALS (NO IMAGES NEEDED) --- */
+        .bg-visual { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; opacity: 0.6; }
+        
+        .grid-bg { background-image: linear-gradient(rgba(0, 210, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 210, 255, 0.15) 1px, transparent 1px); background-size: 40px 40px; width: 200%; height: 200%; animation: panGrid 20s linear infinite; }
+        @keyframes panGrid { 0% { transform: translateY(0); } 100% { transform: translateY(-40px); } }
+        
+        .dash-bars { display: flex; gap: 20px; align-items: flex-end; height: 60%; width: 80%; }
+        .dash-bar { flex: 1; background: linear-gradient(to top, #e94560, transparent); border-radius: 5px 5px 0 0; animation: pulseBar 2s ease-in-out infinite alternate; }
+        .dash-bar:nth-child(1) { height: 40%; animation-delay: 0s; } .dash-bar:nth-child(2) { height: 80%; animation-delay: 0.5s; } .dash-bar:nth-child(3) { height: 50%; animation-delay: 1s; } .dash-bar:nth-child(4) { height: 100%; animation-delay: 1.5s; } .dash-bar:nth-child(5) { height: 70%; animation-delay: 0.8s; }
+        @keyframes pulseBar { 0% { transform: scaleY(0.8); transform-origin: bottom; opacity: 0.5; } 100% { transform: scaleY(1.1); transform-origin: bottom; opacity: 1; } }
+        
+        .wifi-wave { position: absolute; border: 2px solid #00d2ff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0; animation: ripple 3s linear infinite; }
+        .wifi-wave:nth-child(1) { animation-delay: 0s; } .wifi-wave:nth-child(2) { animation-delay: 1s; } .wifi-wave:nth-child(3) { animation-delay: 2s; }
+        @keyframes ripple { 0% { width: 0; height: 0; opacity: 0.8; border-width: 4px; } 100% { width: 800px; height: 800px; opacity: 0; border-width: 1px; } }
+        
+        .sync-core { width: 400px; height: 400px; border: 2px dashed #e94560; border-radius: 50%; animation: spinRight 15s linear infinite; display: flex; align-items: center; justify-content: center; }
+        .sync-inner { width: 280px; height: 280px; border: 4px solid #00d2ff; border-top-color: transparent; border-bottom-color: transparent; border-radius: 50%; animation: spinLeft 8s linear infinite; }
+        @keyframes spinRight { 100% { transform: rotate(360deg); } } @keyframes spinLeft { 100% { transform: rotate(-360deg); } }
+
+        /* --- THE LOGIN SIDE (RIGHT) --- */
+        .login-section { flex: 0 0 500px; background-color: #0b1526; display: flex; flex-direction: column; justify-content: center; align-items: center; border-left: 1px solid rgba(0, 210, 255, 0.2); box-shadow: -10px 0 30px rgba(0,0,0,0.5); z-index: 10; }
+        .login-box { width: 80%; }
+        
+        .brand-text { color: #00d2ff; letter-spacing: 4px; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; text-transform: uppercase; }
+        .main-title { font-size: 3rem; margin-bottom: 10px; color: #ffffff; font-weight: 300; }
+        .subtitle { color: #64748b; margin-bottom: 40px; font-size: 0.95rem; }
+
+        .admin-login { text-align: left; background: rgba(255,255,255,0.02); padding: 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; color: #a0aec0; font-size: 0.85rem; letter-spacing: 1px; font-weight: bold; }
+        .input-group input { width: 100%; padding: 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; transition: border 0.3s; font-size: 1rem; }
+        .input-group input:focus { border-color: #00d2ff; background: rgba(0, 210, 255, 0.05); }
+        
+        .login-btn { width: 100%; padding: 15px; background-color: #00d2ff; color: #0a101d; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.3s; margin-top: 10px; }
+        .login-btn:hover { background-color: #00b8e6; }
+        
+        .footer-text { margin-top: 40px; color: #475569; font-size: 0.8rem; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="split-screen-container">
+    
+    <div class="marketing-showcase">
+        <div class="slide active">
+            <div class="bg-visual"><div class="grid-bg"></div></div>
+            <div class="slide-content"><h2>Live Network</h2><p>Zero-latency synchronization across your entire infrastructure.</p></div>
+        </div>
+        <div class="slide">
+            <div class="bg-visual"><div class="dash-bars"><div class="dash-bar"></div><div class="dash-bar"></div><div class="dash-bar"></div><div class="dash-bar"></div><div class="dash-bar"></div></div></div>
+            <div class="slide-content"><h2>System Dashboard</h2><p>Real-time analytics and management information workflows.</p></div>
+        </div>
+        <div class="slide">
+            <div class="bg-visual"><div class="wifi-wave"></div><div class="wifi-wave"></div><div class="wifi-wave"></div></div>
+            <div class="slide-content"><h2>WiFi Hotspot</h2><p>Seamless, secure connectivity deployed instantly.</p></div>
+        </div>
+        <div class="slide">
+            <div class="bg-visual"><div class="sync-core"><div class="sync-inner"></div></div></div>
+            <div class="slide-content"><h2>Cyber-Sync Logic</h2><p>Automated machine states managed securely from the cloud.</p></div>
+        </div>
+    </div>
+
+    <div class="login-section">
+        <div class="login-box">
+            <p class="brand-text">BLESSMAS INVESTMENTS</p>
+            <h1 class="main-title">System Login</h1>
+            <p class="subtitle">Secure access for authorized staff only.</p>
+            
+            <form id="loginForm" class="admin-login">
+                <div class="input-group">
+                    <label>EMAIL OR USERNAME</label>
+                    <input type="text" id="email" required placeholder="admin">
+                </div>
+                <div class="input-group">
+                    <label>PASSWORD / PIN</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="login-btn">Enter Workspace</button>
+            </form>
+
+            <div class="footer-text">
+                &copy; 2026 Powered by IntraCore.Digital
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+    // SLIDER LOGIC
+    const slides = document.querySelectorAll('.slide');
+    let currentSlide = 0;
+    setInterval(() => {
+        slides[currentSlide].classList.remove('active');
+        currentSlide = (currentSlide + 1) % slides.length;
+        slides[currentSlide].classList.add('active');
+    }, 5000);
+
+    // LOGIN REDIRECT LOGIC
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault(); 
+        
+        const btn = document.querySelector('.login-btn');
+        btn.innerText = "Authenticating...";
+        btn.style.opacity = "0.7";
+
+        // Simulating a brief loading state before sending them to the dashboard
+        setTimeout(() => {
+            // REDIRECT TO YOUR DASHBOARD FILE
+            window.location.href = "admin.html"; 
+        }, 800);
+    });
+</script>
+
+</body>
+</html>
