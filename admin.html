@@ -17,18 +17,19 @@
     .pin-input { font-size: 1.8rem; letter-spacing: 12px; text-align: center; width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin: 15px 0; font-family: monospace; outline: none; }
     .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 10px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
 
-    /* --- SIDEBAR --- */
-    .sidebar { width: 220px; background: #0f3460; color: white; height: 100vh; position: fixed; display: flex; flex-direction: column; z-index: 100;}
-    .sidebar-brand { padding: 20px 15px; font-size: 1.3rem; font-weight: 700; text-align: left; color: white; margin-bottom: 5px;}
+    /* --- TOP NAVIGATION BAR --- */
+    .sidebar { width: 100vw; background: #0f3460; color: white; height: 65px; position: fixed; top: 0; left: 0; display: flex; flex-direction: row; align-items: center; padding: 0 20px; z-index: 100; box-sizing: border-box; }
+    .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: white; margin-right: 30px; }
     .sidebar-brand span { color: #38bdf8; }
-    .nav-menu { list-style: none; padding: 0 10px; margin: 0; }
-    .nav-item { padding: 10px 12px; margin-bottom: 2px; font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #94a3b8; border-radius: 6px; }
+    .nav-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: row; gap: 5px; overflow-x: auto; white-space: nowrap; }
+    .nav-menu::-webkit-scrollbar { display: none; } /* Hides scrollbar on mobile */
+    .nav-item { padding: 8px 12px; font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #94a3b8; border-radius: 6px; transition: 0.2s; }
     .nav-item:hover { background-color: rgba(255,255,255,0.05); color: white; }
     .nav-item.active { background: rgba(255,255,255,0.1); color: #ffffff; }
-    .sidebar-footer { margin-top: auto; padding: 15px; font-size: 0.75rem; text-align: center; color: #64748b; }
+    .sidebar-footer { display: none; }
 
     /* --- MAIN CONTENT & LAYOUT --- */
-    .main-content { margin-left: 220px; padding: 20px 30px; width: calc(100% - 220px); box-sizing: border-box; min-height: 100vh; }
+    .main-content { margin-left: 0; margin-top: 65px; padding: 20px 30px; width: 100%; box-sizing: border-box; min-height: 100vh; }
     .header { background: transparent; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .header h1 { margin: 0; font-size: 1.5rem; font-weight: 600; color: #111827;}
     .user-profile { display: flex; align-items: center; gap: 10px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
@@ -131,17 +132,16 @@
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 
     /* --- MOBILE RESPONSIVE PATCH --- */
-    .mobile-menu-btn { display: none; }
+    .mobile-menu-btn { display: none !important; }
     @media (max-width: 768px) {
-        .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; width: 250px; }
-        .sidebar.mobile-open { transform: translateX(0); }
-        .main-content { margin-left: 0; width: 100%; padding: 15px; }
+        .main-content { padding: 15px; margin-top: 65px; }
         .dashboard-grid { grid-template-columns: 1fr !important; }
+        .feed-card { grid-column: span 1 !important; }
         .header { flex-direction: column; align-items: flex-start; gap: 15px; }
         .pos-grid { grid-template-columns: 1fr; }
         .table-card { overflow-x: auto; }
-        .mobile-menu-btn { display: inline-block !important; background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; margin-right: 10px; color: #111827; }
         .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
+        .sidebar-brand { margin-right: 15px; font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -170,7 +170,7 @@
       <li class="nav-item" onclick="window.switchTab('pos', this)">🛒 Point of Sale</li>
       
       <li class="nav-item" id="nav-finances" onclick="window.switchTab('finances', this)">💸 Finances</li>
-      <li class="nav-item" id="nav-shifts" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 10px;" onclick="window.switchTab('shifts', this)">⏱️ Shift Reports</li>
+      <li class="nav-item" id="nav-shifts" onclick="window.switchTab('shifts', this)">⏱️ Shift Reports</li>
       <li class="nav-item" id="nav-staff" onclick="window.switchTab('staff', this)">👥 Staff Management</li>
       <li class="nav-item" id="nav-settings" onclick="window.switchTab('settings', this)">⚙️ Settings</li>
     </ul>
@@ -181,7 +181,6 @@
     
     <div class="header">
         <div style="display: flex; align-items: center;">
-            <button class="mobile-menu-btn" onclick="window.toggleSidebar()">☰</button>
             <h1 id="page-title">Analytics Dashboard</h1>
         </div>
         <div class="user-profile">
