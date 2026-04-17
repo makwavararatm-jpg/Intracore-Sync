@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blessmas Investments Dashboard</title>
+  
+  <link rel="manifest" href="manifest.json">
+
   <style>
     /* --- FLAT MINIMALIST CSS (TAILWIND STYLE) --- */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -355,6 +358,12 @@
   </div>
 
   <script type="module" src="app.js"></script>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
 
 </body>
 </html>
