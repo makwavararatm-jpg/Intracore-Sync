@@ -1,4 +1,4 @@
-const CACHE_NAME = 'blessmas-pos-v3';
+const CACHE_NAME = 'blessmas-pos-v4';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE_NAME));
