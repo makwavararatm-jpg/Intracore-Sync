@@ -138,14 +138,14 @@
     .mobile-menu-btn { display: none !important; }
     
     @media (max-width: 768px) {
-        /* 1. Reset main content spacing to remove clutter */
+        /* 1. Reset main content spacing */
         .main-content { padding: 15px; margin-top: 60px; margin-bottom: 75px; }
         
         /* 2. Top Sidebar: Clean and centered */
         .sidebar { justify-content: center; height: 60px; }
         .sidebar-brand { margin-right: 0; font-size: 1.2rem; }
         
-        /* 3. Bottom App Navigation: Icons stacked above text */
+        /* 3. Bottom App Navigation */
         .nav-menu { 
             position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #0f3460; 
             display: flex; flex-direction: row; justify-content: space-around; align-items: center; 
@@ -158,47 +158,48 @@
         .nav-item:hover { background: transparent; }
         .nav-item.active { background: rgba(255,255,255,0.1); border-top: 3px solid #38bdf8; color: #38bdf8; }
 
-        /* 4. Multi-Row Dash Metrics (Total Revenue Prominent) */
-        .dashboard-grid { grid-template-columns: 1fr; gap: 15px; }
+        /* 4. THE 2-COLUMN MAGNIFICENCE: Quick Actions */
+        .quick-actions-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; /* Forces exactly 2 columns */
+            gap: 10px; 
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .quick-btn { 
+            width: 100%; 
+            padding: 12px 5px; 
+            font-size: 0.85rem;
+            margin-bottom: 0; 
+            white-space: nowrap; 
+        }
+
+        /* 5. REVENUE METRICS: 2 Cards per row */
+        .dashboard-grid { 
+            grid-template-columns: 1fr 1fr !important; /* Forces 2 columns for Revenue */
+            gap: 12px !important; 
+        }
+        .metric-card { padding: 15px 12px; }
+        .metric-title { font-size: 0.75rem; white-space: nowrap; }
+        .metric-value { font-size: 1.1rem; }
+        .net-profit-card { grid-column: span 2; } /* Keeps profit full-width */
         
-        /* 5. Key Sections as tight grids: This creates the beautiful modern look */
+        /* 6. Key Sections & Grids */
         .header { flex-direction: column; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
         .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
         
-        /* 6. PC Stations: 2-column grid force */
+        /* 7. PC Stations & POS Fixes */
         .pc-grid-container { grid-template-columns: 1fr 1fr; gap: 10px; }
         .pc-node { padding: 12px; }
         .pc-node-time { font-size: 1.1rem; }
-        
-        /* 7. POS: Stack panels vertically, but use 2-col for items */
         .pos-grid { grid-template-columns: 1fr; gap: 20px; }
         .items-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
         
-        /* 8. Full-screen sliding panels */
+        /* 8. Full-screen sliding panels & Tables */
         .side-panel { width: 100%; right: -100%; padding: 20px; }
-        
-        /* 9. THE 2-COLUMN MAGNIFICENCE: Quick Actions & Financial Grid */
-        /* Change the metric cards to use a grid of 2 equal columns */
-        .feed-card { grid-column: span 1 !important; height: auto; padding: 15px; }
-        
-        /* For whatever container you are using for Quick Actions buttons, apply this: */
-        .quick-actions-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .quick-btn { padding: 16px; width: 100%; margin-bottom: 0px; text-align: center; font-size: 0.95rem; font-weight: 600; }
-        
-        /* For the specific financial metrics container (Total Rev, WiFi, etc.), apply this: */
-        .financial-grid-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        /* Ensure the Total Revenue card can span full width if you want, or keep it in the grid */
-        /* .total-revenue-card { grid-column: span 2; } */
+        .table-card { overflow-x: auto; padding: 15px; width: 100%; box-sizing: border-box;}
+        .voucher-table { min-width: 500px; } 
+        .feed-card { grid-column: span 2 !important; height: auto; padding: 15px; } /* Makes Activity Stream full width below the 2x2 grid */
     }
   </style>
 </head>
