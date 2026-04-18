@@ -145,15 +145,25 @@
         .sidebar { justify-content: center; height: 60px; }
         .sidebar-brand { margin-right: 0; font-size: 1.2rem; }
         
-        /* 3. Bottom App Navigation */
+        /* 3. Bottom App Navigation (SWIPEABLE SCROLL) */
         .nav-menu { 
             position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #0f3460; 
-            display: flex; flex-direction: row; justify-content: space-around; align-items: center; 
-            padding: 0; margin: 0; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.15); overflow: hidden;
+            display: flex; flex-direction: row; align-items: center; 
+            padding: 0; margin: 0; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.15); 
+            
+            /* The Magic Scroll Rules */
+            overflow-x: auto; 
+            justify-content: flex-start; /* Aligns them in a row instead of squishing them */
+            scroll-behavior: smooth;
         }
+        
         .nav-item { 
             flex-direction: column; justify-content: center; gap: 4px; font-size: 0.7rem; 
-            padding: 8px 0; flex: 1; text-align: center; border-radius: 0; 
+            padding: 8px 15px; text-align: center; border-radius: 0; 
+            
+            /* Prevents them from shrinking, forcing the user to swipe to see more */
+            flex: 0 0 auto; 
+            min-width: 65px; 
         }
         .nav-item:hover { background: transparent; }
         .nav-item.active { background: rgba(255,255,255,0.1); border-top: 3px solid #38bdf8; color: #38bdf8; }
