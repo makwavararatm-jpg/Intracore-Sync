@@ -134,17 +134,73 @@
     .live-dot { display: inline-block; width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 
-    /* --- MOBILE RESPONSIVE PATCH --- */
+   /* --- MOBILE RESPONSIVE PATCH (NATIVE APP EXPERIENCE) --- */
     .mobile-menu-btn { display: none !important; }
+    
     @media (max-width: 768px) {
-        .main-content { padding: 15px; margin-top: 65px; }
-        .dashboard-grid { grid-template-columns: 1fr !important; }
-        .feed-card { grid-column: span 1 !important; }
+        /* 1. Adjust main spacing to make room for bottom navigation */
+        .main-content { padding: 15px; margin-top: 60px; margin-bottom: 75px; }
+        
+        /* 2. Simplify the top header */
+        .sidebar { justify-content: space-between; padding: 0 15px; height: 60px; }
+        .sidebar-brand { margin-right: 0; font-size: 1.2rem; }
+        
+        /* 3. THE MAGIC: Move Navigation to a Bottom App Bar */
+        .nav-menu { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 65px; 
+            background: #0f3460; 
+            display: flex; 
+            flex-direction: row; 
+            justify-content: space-around; 
+            align-items: center; 
+            padding: 0; 
+            margin: 0; 
+            z-index: 1000; 
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .nav-item { 
+            flex-direction: column; /* Stacks icon above text */
+            justify-content: center;
+            gap: 4px; 
+            font-size: 0.7rem; 
+            padding: 8px 0; 
+            flex: 1; 
+            text-align: center; 
+            border-radius: 0; 
+        }
+        .nav-item:hover { background: transparent; }
+        .nav-item.active { background: rgba(255,255,255,0.1); border-top: 3px solid #38bdf8; color: #38bdf8; }
+
+        /* 4. Fix Grids so they don't look squeezed */
+        .dashboard-grid { grid-template-columns: 1fr !important; gap: 15px; }
+        .feed-card { grid-column: span 1 !important; height: 250px; }
         .header { flex-direction: column; align-items: flex-start; gap: 15px; }
-        .pos-grid { grid-template-columns: 1fr; }
-        .table-card { overflow-x: auto; }
+        
+        /* 5. Force 2 columns for PCs so they fit perfectly */
+        .pc-grid-container { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .pc-node { padding: 12px; }
+        .pc-node-time { font-size: 1.1rem; }
+        
+        /* 6. POS layout fixes */
+        .pos-grid { grid-template-columns: 1fr; gap: 20px; }
+        .items-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        
+        /* 7. Stop Tables from breaking the screen (Scroll horizontally) */
+        .table-card { overflow-x: auto; padding: 15px; width: 100%; box-sizing: border-box;}
+        .voucher-table { min-width: 500px; } 
+
+        /* 8. Make Side Panels full-screen on mobile */
+        .side-panel { width: 100%; right: -100%; padding: 20px; }
+        
+        /* 9. Bigger Touch Targets for Thumbs */
+        .quick-btn { padding: 12px; width: 100%; margin-bottom: 8px; text-align: center; }
         .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
-        .sidebar-brand { margin-right: 15px; font-size: 1.1rem; }
+        .pc-controls button { padding: 10px 6px; font-size: 0.8rem; }
     }
   </style>
 </head>
