@@ -134,10 +134,11 @@ window.deleteStaff = function(id, name) {
 }
 
 // ==========================================
-// SEGMENTED REVENUE & FINANCE TRACKER
+// SEGMENTED REVENUE & FINANCE TRACKER (UPGRADED LEDGER)
 // ==========================================
 let globalPosRevenue = 0; let globalWifiRevenue = 0; let globalPcRevenue = 0; let globalManualRevenue = 0; let totalExpenses = 0;
 let posCart = []; let cartTotal = 0;
+const transactionsRef = ref(db, 'cafes/blessmas/transactions');
 
 window.updateProfitCalculator = function() {
     const totalRevenue = globalPosRevenue + globalWifiRevenue + globalPcRevenue + globalManualRevenue; 
@@ -162,18 +163,54 @@ onValue(shiftsRef, (snapshot) => {
     });
 });
 
-const transactionsRef = ref(db, 'cafes/blessmas/transactions');
-window.saveTransaction = function() { const type = document.getElementById('trans-type').value; const desc = document.getElementById('trans-desc').value; const amount = parseFloat(document.getElementById('trans-amount').value); const category = document.getElementById('trans-category').value; push(transactionsRef, { type: type, description: desc, amount: amount, category: category, createdAt: Date.now() }).then(() => { window.logActivity('FINANCE', `Logged ${type === 'inflow' ? 'Income' : 'Expense'} of $${amount.toFixed(2)}`); window.closeAllPanels(); }); }
+window.saveTransaction = function() { 
+    const type = document.getElementById('trans-type').value; 
+    const desc = document.getElementById('trans-desc').value; 
+    const amount = parseFloat(document.getElementById('trans-amount').value); 
+    const category = document.getElementById('trans-category').value; 
+    
+    // Explicitly mark manual income so it doesn't inflate the automated Wi-Fi/POS stats
+    const finalCategory = type === 'inflow' ? 'Manual Income' : category;
 
+    push(transactionsRef, { type: type, description: desc, amount: amount, category: finalCategory, cashier: currentUser, createdAt: Date.now() }).then(() => { 
+        window.logActivity('FINANCE', `Logged ${type === 'inflow' ? 'Income' : 'Expense'} of $${amount.toFixed(2)}`); 
+        window.closeAllPanels(); 
+    }); 
+}
+
+// THE MASTER LEDGER CALCULATOR
 onValue(transactionsRef, (snapshot) => { 
     const tbody = document.getElementById('transactions-list'); tbody.innerHTML = ''; const data = snapshot.val(); 
-    globalManualRevenue = 0; totalExpenses = 0; 
+    
+    // Reset all globals to recalculate from the absolute truth of the ledger
+    globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
+    
     if (!data) { window.updateProfitCalculator(); return; } 
+    
     Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
-        const isIncome = trans.type === 'inflow'; if (isIncome) globalManualRevenue += trans.amount; else totalExpenses += trans.amount; 
-        const timeStr = new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const amountColor = isIncome ? '#10b981' : '#ef4444'; const amountSign = isIncome ? '+' : '-'; const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
-        tbody.innerHTML += `<tr><td style="font-weight: 500; color: #111827;">${trans.description}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
+        const isIncome = trans.type === 'inflow'; 
+        
+        // Distribute revenue to the correct KPI cards based on category
+        if (isIncome) {
+            if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
+            else if (trans.category === 'POS') globalPosRevenue += trans.amount;
+            else if (trans.category === 'PC') globalPcRevenue += trans.amount;
+            else globalManualRevenue += trans.amount;
+        } else {
+            totalExpenses += trans.amount; 
+        }
+
+        const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
+        const amountColor = isIncome ? '#10b981' : '#ef4444'; 
+        const amountSign = isIncome ? '+' : '-'; 
+        const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
+        
+        // Show cashier name in description for accountability
+        const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
+
+        tbody.innerHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
     }); 
+    
     window.updateProfitCalculator(); 
 });
 
@@ -193,7 +230,21 @@ window.deployNewPC = function() {
 window.addPCTimer = function(pcId, minutes, priceStr) {
     const price = parseFloat(priceStr || 0); const msToAdd = minutes * 60 * 1000;
     update(ref(db, 'cafes/blessmas/machines/' + pcId), { status: 'active', endTime: Date.now() + msToAdd });
-    if(price > 0) { globalPcRevenue += price; currentShiftSales += price; window.updateProfitCalculator(); window.updateShiftSalesUI(); }
+    
+    if(price > 0) { 
+        currentShiftSales += price; 
+        window.updateShiftSalesUI(); 
+
+        // NEW: Officially log the PC Rental
+        push(transactionsRef, { 
+            type: 'inflow', 
+            description: `PC Rental: ${pcId.replace('_', ' ')} for ${minutes} mins`, 
+            amount: price, 
+            category: 'PC', 
+            cashier: currentUser, 
+            createdAt: Date.now() 
+        });
+    }
     window.logActivity('PC', `Unlocked ${pcId} for ${minutes} min ($${price})`);
 }
 
@@ -270,7 +321,29 @@ window.logActivity = function(type, message) {
 // POS Cart Logic
 window.addToCart = function(name, price) { posCart.push({ name, price }); cartTotal += price; window.updateCartUI(); }
 window.updateCartUI = function() { const cartDiv = document.getElementById('cart-items-list'); if (posCart.length === 0) { cartDiv.innerHTML = '<p style="color: #9ca3af; text-align: center; margin-top: 50px;">Cart is empty</p>'; } else { cartDiv.innerHTML = ''; posCart.forEach(item => cartDiv.innerHTML += `<div class="cart-row"><span>${item.name}</span><span>$${item.price.toFixed(2)}</span></div>`); } document.getElementById('cart-total-price').innerText = '$' + cartTotal.toFixed(2); }
-window.checkoutCart = function() { if(cartTotal === 0) return alert("Add items to the cart first!"); globalPosRevenue += cartTotal; currentShiftSales += cartTotal; window.updateProfitCalculator(); window.updateShiftSalesUI(); window.logActivity('POS', `${currentUser} completed sale for $${cartTotal.toFixed(2)}`); alert(`Sale completed! Add $${cartTotal.toFixed(2)} to your drawer.`); posCart = []; cartTotal = 0; window.updateCartUI(); }
+window.checkoutCart = function() { 
+    if(cartTotal === 0) return alert("Add items to the cart first!"); 
+    
+    currentShiftSales += cartTotal; 
+    window.updateShiftSalesUI(); 
+
+    // Extract item names for the receipt description
+    const itemNames = posCart.map(i => i.name).join(', ');
+
+    // NEW: Officially log the POS sale
+    push(transactionsRef, { 
+        type: 'inflow', 
+        description: `POS Sale: ${itemNames}`, 
+        amount: cartTotal, 
+        category: 'POS', 
+        cashier: currentUser, 
+        createdAt: Date.now() 
+    });
+
+    window.logActivity('POS', `${currentUser} completed sale for $${cartTotal.toFixed(2)}`); 
+    alert(`Sale completed! Add $${cartTotal.toFixed(2)} to your drawer.`); 
+    posCart = []; cartTotal = 0; window.updateCartUI(); 
+}
 
 // ==========================================
 // MODULE: SETTINGS & DYNAMIC HOTSPOT BUTTONS
@@ -315,7 +388,20 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
     
     push(vouchersRef, { code: newToken, package: name, label: name, price: price, uptimeLimit: uptime, dataLimit: dataLimit, speedLimit: speed, status: "active", cashier: currentUser, phone: phoneInput, createdAt: Date.now() }); 
     
-    if(price > 0) { globalWifiRevenue += price; currentShiftSales += price; window.updateProfitCalculator(); window.updateShiftSalesUI(); }
+    if(price > 0) { 
+        currentShiftSales += price; 
+        window.updateShiftSalesUI(); 
+        
+        // NEW: Officially log the sale in the financial ledger
+        push(transactionsRef, { 
+            type: 'inflow', 
+            description: `Sold Wi-Fi Token: ${newToken} (${name})`, 
+            amount: price, 
+            category: 'Wi-Fi', 
+            cashier: currentUser, 
+            createdAt: Date.now() 
+        });
+    }
     
     let logMsg = `${currentUser} generated <strong>${newToken}</strong> (${name}) for $${price.toFixed(2)}`;
     
@@ -399,15 +485,10 @@ onValue(vouchersRef, (snapshot) => {
     const tbody = document.getElementById('voucher-list'); 
     tbody.innerHTML = ''; 
     const data = snapshot.val(); 
-    globalWifiRevenue = 0; 
     
     if (!data) return; 
     
     const vouchersArray = Object.values(data).sort((a, b) => b.createdAt - a.createdAt); 
-    
-    // Calculate Revenue
-    vouchersArray.forEach(v => { if(v.price) globalWifiRevenue += v.price; });
-    window.updateProfitCalculator();
     
     // Populate the Recent Vouchers Table ONLY
     vouchersArray.slice(0, 10).forEach(v => { 
