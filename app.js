@@ -518,7 +518,7 @@ onValue(vouchersRef, (snapshot) => {
     
     let vouchersArray = Object.values(data).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // NEW LOGIC: Filter for Cashiers (Admins see all)
+    // Filter for Cashiers (Admins see all)
     if (currentRole !== 'admin') {
         vouchersArray = vouchersArray.filter(v => v.cashier === currentUser);
     }
@@ -547,6 +547,7 @@ onValue(vouchersRef, (snapshot) => {
             statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">ACTIVE</span>`;
         }
         
+        // 7 Columns exactly matching the HTML headers
         tbody.innerHTML += `
         <tr>
             <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
@@ -592,7 +593,6 @@ window.printReceipt = function(code, label, price, uptime, data, timeStr) {
     printWindow.focus(); 
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); 
 }
-
 // ==========================================
 // MODULE: BULK PRINTING & SCRATCH CARDS
 // ==========================================
