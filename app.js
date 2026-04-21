@@ -562,13 +562,33 @@ window.renderVoucherTable = function() {
         
         const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'}</div>`;
 
-        const expiryInfo = getExpiryData(v.createdAt, v.uptimeLimit);
-        const isExpired = expiryInfo.ms > 0 && Date.now() > expiryInfo.ms;
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        // Security Patch: Burn "used" into database if they connect
+        // NEW LOGIC: Start the clock ONLY when they connect for the first time
         if (isConnected && v.status === 'active') {
-            update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { status: 'used' });
+            const now = Date.now();
+            update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { 
+                status: 'used',
+                startedAt: now // Record the exact start time
+            });
+            v.status = 'used';
+            v.startedAt = now;
+        }
+
+        let expiryText = `<span style="color: #0ea5e9; font-style: italic;">Pending Login</span>`;
+        let isExpired = false;
+
+        // Determine when the clock started. (Fallback to createdAt for old tokens)
+        let startTime = v.startedAt;
+        if (!startTime && (v.status === 'used' || v.status === 'voided')) {
+            startTime = v.createdAt; 
+        }
+
+        // Only calculate calendar expiry IF the timer has started
+        if (startTime) {
+            const expiryInfo = getExpiryData(startTime, v.uptimeLimit);
+            expiryText = expiryInfo.text;
+            isExpired = expiryInfo.ms > 0 && Date.now() > expiryInfo.ms;
         }
 
         let statusBadgeHTML = '';
@@ -603,7 +623,7 @@ window.renderVoucherTable = function() {
             <td>${deliveryBadge}${cashierDisplay}</td>
             <td>${statusBadgeHTML}</td>
             <td style="color:#6b7280; font-size:0.8rem;">${new Date(v.createdAt).toLocaleDateString([], {month:'short', day:'numeric'})} ${dateStr}</td>
-            <td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryInfo.text}</td>
+            <td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryText}</td>
             <td>${actionButtons}</td>
         </tr>`; 
     }); 
