@@ -1,4 +1,4 @@
-const CACHE_NAME = 'blessmas-pos-v10'; // Bumped to v10 to force the update
+const CACHE_NAME = 'blessmas-pos-v11'; // Bumped to v11 to force the update
 
 // 1. Tell the phone exactly which files to download and save offline
 const URLS_TO_CACHE = [
