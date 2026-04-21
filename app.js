@@ -72,7 +72,6 @@ window.processLogin = function() {
     currentUser = foundUser.name; currentRole = foundUser.role;
     window.applyRoleBasedUI(currentRole);
 
-    // Draw the voucher table instantly when logged in!
     if (typeof window.renderVoucherTable === 'function') {
         window.renderVoucherTable(); 
     }
@@ -119,12 +118,14 @@ window.clockOut = function() {
 }
 
 onValue(staffRef, (snapshot) => {
-    globalStaffData = snapshot.val() || {}; const tbody = document.getElementById('staff-list'); tbody.innerHTML = ''; 
+    globalStaffData = snapshot.val() || {}; const tbody = document.getElementById('staff-list'); 
+    let html = ''; 
     if(Object.keys(globalStaffData).length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: #9ca3af;">No staff configured yet. Default Admin PIN is 8888.</td></tr>'; return; }
     Object.entries(globalStaffData).forEach(([key, staff]) => {
         const safeName = staff.name.replace(/'/g, "\\'"); const roleBadge = staff.role === 'admin' ? '<span class="badge-active-small" style="background:#fef3c7; color:#b45309;">ADMIN</span>' : '<span class="badge-active-small" style="background:#dcfce7; color:#15803d;">CASHIER</span>';
-        tbody.innerHTML += `<tr><td style="font-weight: 600; color: #111827;">${staff.name}</td><td>${roleBadge}</td><td style="font-family: monospace;">••••</td><td style="text-align: right;"><button class="btn-action" onclick="deleteStaff('${key}', '${safeName}')">🗑️</button></td></tr>`;
+        html += `<tr><td style="font-weight: 600; color: #111827;">${staff.name}</td><td>${roleBadge}</td><td style="font-family: monospace;">••••</td><td style="text-align: right;"><button class="btn-action" onclick="deleteStaff('${key}', '${safeName}')">🗑️</button></td></tr>`;
     });
+    tbody.innerHTML = html;
 });
 
 window.saveStaff = function() {
@@ -158,13 +159,16 @@ window.updateProfitCalculator = function() {
 window.updateShiftSalesUI = function() { document.getElementById('current-shift-sales').innerText = '$' + currentShiftSales.toFixed(2); if(currentShiftId) { update(ref(db, 'cafes/blessmas/shifts/' + currentShiftId), { totalSales: currentShiftSales }); } }
 
 onValue(shiftsRef, (snapshot) => {
-    const tbody = document.getElementById('shifts-list'); tbody.innerHTML = ''; const data = snapshot.val();
-    if(!data) return;
-    Object.values(data).sort((a, b) => b.startTime - a.startTime).forEach(shift => {
+    const tbody = document.getElementById('shifts-list'); const data = snapshot.val();
+    if(!data) { tbody.innerHTML = ''; return; }
+    let html = '';
+    // Limit UI to last 30 shifts to prevent lag
+    Object.values(data).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
         const startStr = new Date(shift.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const endStr = shift.endTime ? new Date(shift.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Still Active';
         const statusBadge = shift.status === 'active' ? '<span class="badge-active-small">ACTIVE NOW</span>' : '<span class="badge-neutral">Completed</span>';
-        tbody.innerHTML += `<tr><td style="font-weight: 600; color: #111827;">${shift.cashierName}</td><td>${startStr}</td><td>${endStr}</td><td style="color: #10b981; font-weight: 600;">$${shift.totalSales.toFixed(2)}</td><td>${statusBadge}</td></tr>`;
+        html += `<tr><td style="font-weight: 600; color: #111827;">${shift.cashierName}</td><td>${startStr}</td><td>${endStr}</td><td style="color: #10b981; font-weight: 600;">$${shift.totalSales.toFixed(2)}</td><td>${statusBadge}</td></tr>`;
     });
+    tbody.innerHTML = html;
 });
 
 window.saveTransaction = function() { 
@@ -182,15 +186,18 @@ window.saveTransaction = function() {
 }
 
 onValue(transactionsRef, (snapshot) => { 
-    const tbody = document.getElementById('transactions-list'); tbody.innerHTML = ''; const data = snapshot.val(); 
+    const tbody = document.getElementById('transactions-list'); const data = snapshot.val(); 
     
     globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
     
-    if (!data) { window.updateProfitCalculator(); return; } 
+    if (!data) { tbody.innerHTML = ''; window.updateProfitCalculator(); return; } 
     
+    let html = '';
+    let rowCount = 0;
+
     Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
+        // 1. Calculate the math for ALL time history
         const isIncome = trans.type === 'inflow'; 
-        
         if (isIncome) {
             if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
             else if (trans.category === 'POS') globalPosRevenue += trans.amount;
@@ -200,16 +207,20 @@ onValue(transactionsRef, (snapshot) => {
             totalExpenses += trans.amount; 
         }
 
-        const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
-        const amountColor = isIncome ? '#10b981' : '#ef4444'; 
-        const amountSign = isIncome ? '+' : '-'; 
-        const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
-        
-        const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
-
-        tbody.innerHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
+        // 2. ONLY build UI HTML for the 100 most recent items so the browser doesn't freeze
+        if (rowCount < 100) {
+            const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
+            const amountColor = isIncome ? '#10b981' : '#ef4444'; 
+            const amountSign = isIncome ? '+' : '-'; 
+            const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
+            const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
+            
+            html += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
+            rowCount++;
+        }
     }); 
     
+    tbody.innerHTML = html;
     window.updateProfitCalculator(); 
 });
 
@@ -252,14 +263,15 @@ window.lockPC = function(pcId) {
 }
 
 onValue(pcsRef, (snapshot) => {
-    const grid = document.getElementById('multi-pc-grid'); grid.innerHTML = ''; const data = snapshot.val();
+    const grid = document.getElementById('multi-pc-grid'); const data = snapshot.val();
     if(!data) { grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #9ca3af;">No workstations deployed. Click Add Workstation.</div>'; return; }
 
     Object.values(pcIntervals).forEach(clearInterval); pcIntervals = {};
+    let html = '';
 
     Object.entries(data).forEach(([pcId, pcData]) => {
         const isFree = pcData.status !== 'active'; const nodeClass = isFree ? 'free' : 'active'; const statusClass = isFree ? 'status-free' : 'status-active'; const statusText = isFree ? 'FREE / LOCKED' : 'ACTIVE';
-        let html = `
+        html += `
             <div class="pc-node ${nodeClass}">
                 <div class="pc-node-title">${pcId.replace('_', ' ')}</div>
                 <div class="pc-node-status ${statusClass}">${statusText}</div>
@@ -271,7 +283,6 @@ onValue(pcsRef, (snapshot) => {
                 </div>
             </div>
         `;
-        grid.innerHTML += html;
 
         if(!isFree && pcData.endTime > 0) {
             pcIntervals[pcId] = setInterval(() => {
@@ -283,6 +294,7 @@ onValue(pcsRef, (snapshot) => {
             }, 1000);
         }
     });
+    grid.innerHTML = html;
 });
 
 // ==========================================
@@ -318,7 +330,7 @@ window.logActivity = function(type, message) {
 
 // POS Cart Logic
 window.addToCart = function(name, price) { posCart.push({ name, price }); cartTotal += price; window.updateCartUI(); }
-window.updateCartUI = function() { const cartDiv = document.getElementById('cart-items-list'); if (posCart.length === 0) { cartDiv.innerHTML = '<p style="color: #9ca3af; text-align: center; margin-top: 50px;">Cart is empty</p>'; } else { cartDiv.innerHTML = ''; posCart.forEach(item => cartDiv.innerHTML += `<div class="cart-row"><span>${item.name}</span><span>$${item.price.toFixed(2)}</span></div>`); } document.getElementById('cart-total-price').innerText = '$' + cartTotal.toFixed(2); }
+window.updateCartUI = function() { const cartDiv = document.getElementById('cart-items-list'); if (posCart.length === 0) { cartDiv.innerHTML = '<p style="color: #9ca3af; text-align: center; margin-top: 50px;">Cart is empty</p>'; } else { let html = ''; posCart.forEach(item => html += `<div class="cart-row"><span>${item.name}</span><span>$${item.price.toFixed(2)}</span></div>`); cartDiv.innerHTML = html; } document.getElementById('cart-total-price').innerText = '$' + cartTotal.toFixed(2); }
 window.checkoutCart = function() { 
     if(cartTotal === 0) return alert("Add items to the cart first!"); 
     
@@ -352,17 +364,19 @@ window.deletePackage = function(id, name) { if(confirm(`Delete "${name}" package
 onValue(packagesRef, (snapshot) => { 
     const tbody = document.getElementById('packages-list'); const btnContainer = document.getElementById('dynamic-package-buttons'); 
     const bulkSelect = document.getElementById('bulk-pkg-select');
-    tbody.innerHTML = ''; btnContainer.innerHTML = ''; bulkSelect.innerHTML = '<option value="">-- Choose Package --</option>';
     const data = snapshot.val(); 
-    if (!data) { tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af;">No packages configured yet.</td></tr>'; btnContainer.innerHTML = '<p style="color: #9ca3af; font-size: 0.85rem; text-align: center;">No packages configured in settings.</p>'; return; } 
+    if (!data) { tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #9ca3af;">No packages configured yet.</td></tr>'; btnContainer.innerHTML = '<p style="color: #9ca3af; font-size: 0.85rem; text-align: center;">No packages configured in settings.</p>'; bulkSelect.innerHTML = '<option value="">-- Choose Package --</option>'; return; } 
+    
+    let tableHtml = ''; let btnHtml = ''; let selectHtml = '<option value="">-- Choose Package --</option>';
+
     Object.entries(data).forEach(([key, pkg]) => { 
         const safeName = pkg.name.replace(/'/g, "\\'"); 
-        tbody.innerHTML += `<tr><td style="font-weight: 500; color: #111827;">${pkg.name}</td><td style="color: #10b981; font-weight: 600;">$${pkg.price.toFixed(2)}</td><td>${pkg.uptimeLimit}</td><td>${pkg.dataLimit}</td><td><span class="badge-neutral">${pkg.speedLimit}</span></td><td style="text-align: right;"><button class="btn-action" onclick="editPackage('${key}', '${safeName}', ${pkg.price}, '${pkg.uptimeLimit}', '${pkg.dataLimit}', '${pkg.speedLimit}')">✏️</button><button class="btn-action" onclick="deletePackage('${key}', '${safeName}')">🗑️</button></td></tr>`; 
-        
-        btnContainer.innerHTML += `<button style="background-color: #ffffff; border: 1px solid #e5e7eb; color: #111827; padding: 14px 15px; border-radius: 8px; cursor: pointer; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='#0ea5e9'; this.style.boxShadow='0 2px 8px rgba(14, 165, 233, 0.15)';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.05)';" onclick="generateDynamicToken('${safeName}', ${pkg.price}, '${pkg.uptimeLimit}', '${pkg.dataLimit}', '${pkg.speedLimit}')"><div style="font-weight: 600; font-size: 1rem;">${pkg.name}</div><div style="color: #10b981; font-weight:700; font-size: 1rem;">$${pkg.price.toFixed(2)}</div></button>`;
-        
-        bulkSelect.innerHTML += `<option value="${safeName}|${pkg.price}|${pkg.uptimeLimit}|${pkg.dataLimit}|${pkg.speedLimit}">${pkg.name} ($${pkg.price.toFixed(2)})</option>`;
+        tableHtml += `<tr><td style="font-weight: 500; color: #111827;">${pkg.name}</td><td style="color: #10b981; font-weight: 600;">$${pkg.price.toFixed(2)}</td><td>${pkg.uptimeLimit}</td><td>${pkg.dataLimit}</td><td><span class="badge-neutral">${pkg.speedLimit}</span></td><td style="text-align: right;"><button class="btn-action" onclick="editPackage('${key}', '${safeName}', ${pkg.price}, '${pkg.uptimeLimit}', '${pkg.dataLimit}', '${pkg.speedLimit}')">✏️</button><button class="btn-action" onclick="deletePackage('${key}', '${safeName}')">🗑️</button></td></tr>`; 
+        btnHtml += `<button style="background-color: #ffffff; border: 1px solid #e5e7eb; color: #111827; padding: 14px 15px; border-radius: 8px; cursor: pointer; width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='#0ea5e9'; this.style.boxShadow='0 2px 8px rgba(14, 165, 233, 0.15)';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.05)';" onclick="generateDynamicToken('${safeName}', ${pkg.price}, '${pkg.uptimeLimit}', '${pkg.dataLimit}', '${pkg.speedLimit}')"><div style="font-weight: 600; font-size: 1rem;">${pkg.name}</div><div style="color: #10b981; font-weight:700; font-size: 1rem;">$${pkg.price.toFixed(2)}</div></button>`;
+        selectHtml += `<option value="${safeName}|${pkg.price}|${pkg.uptimeLimit}|${pkg.dataLimit}|${pkg.speedLimit}">${pkg.name} ($${pkg.price.toFixed(2)})</option>`;
     }); 
+
+    tbody.innerHTML = tableHtml; btnContainer.innerHTML = btnHtml; bulkSelect.innerHTML = selectHtml;
 });
 
 // ==========================================
@@ -445,7 +459,7 @@ onValue(liveNetworkRef, (snapshot) => {
         return; 
     }
 
-    tbody.innerHTML = ''; 
+    let html = ''; 
     let totalDown = 0; 
     let totalUp = 0;
     
@@ -455,7 +469,7 @@ onValue(liveNetworkRef, (snapshot) => {
         
         window.liveActiveCodes.push(device.code); 
         
-        tbody.innerHTML += `
+        html += `
         <tr>
             <td><span class="live-dot"></span> Online</td>
             <td style="font-weight: 600; font-family: monospace; font-size: 1.1rem; color:#111827;">${device.code}</td>
@@ -467,6 +481,7 @@ onValue(liveNetworkRef, (snapshot) => {
         </tr>`;
     });
 
+    tbody.innerHTML = html;
     document.getElementById('total-down-speed').innerText = totalDown.toFixed(2) + " Mbps"; 
     document.getElementById('total-up-speed').innerText = totalUp.toFixed(2) + " Mbps";
     document.getElementById('network-active-count').innerText = deviceArray.length;
@@ -518,7 +533,6 @@ onValue(vouchersRef, (snapshot) => {
 window.renderVoucherTable = function() {
     const tbody = document.getElementById('voucher-list'); 
     if(!tbody) return;
-    tbody.innerHTML = ''; 
     
     if (!rawVoucherData) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No tokens generated yet.</td></tr>';
@@ -537,15 +551,23 @@ window.renderVoucherTable = function() {
     // 2. Custom Calendar Date Range Filter
     const startDateInput = document.getElementById('wifi-start-date')?.value;
     const endDateInput = document.getElementById('wifi-end-date')?.value;
+    let isFiltered = false;
 
     if (startDateInput) {
         const startMs = new Date(startDateInput + 'T00:00:00').getTime();
         vouchersArray = vouchersArray.filter(v => v.createdAt >= startMs);
+        isFiltered = true;
     }
 
     if (endDateInput) {
         const endMs = new Date(endDateInput + 'T23:59:59').getTime();
         vouchersArray = vouchersArray.filter(v => v.createdAt <= endMs);
+        isFiltered = true;
+    }
+
+    // PERFORMANCE FIX: If they are looking at "All Time", limit to the newest 100 to prevent browser crashing
+    if (!isFiltered) {
+        vouchersArray = vouchersArray.slice(0, 100);
     }
 
     if (vouchersArray.length === 0) {
@@ -553,6 +575,9 @@ window.renderVoucherTable = function() {
         return;
     }
     
+    // PERFORMANCE FIX 2: Build HTML string silently in memory, do NOT modify the live DOM inside a loop
+    let tableHTML = '';
+
     vouchersArray.forEach(v => { 
         const dateStr = new Date(v.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
         
@@ -564,12 +589,12 @@ window.renderVoucherTable = function() {
 
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        // NEW LOGIC: Start the clock ONLY when they connect for the first time
+        // Security Patch: Burn "used" into database if they connect
         if (isConnected && v.status === 'active') {
             const now = Date.now();
             update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { 
                 status: 'used',
-                startedAt: now // Record the exact start time
+                startedAt: now
             });
             v.status = 'used';
             v.startedAt = now;
@@ -578,13 +603,11 @@ window.renderVoucherTable = function() {
         let expiryText = `<span style="color: #0ea5e9; font-style: italic;">Pending Login</span>`;
         let isExpired = false;
 
-        // Determine when the clock started. (Fallback to createdAt for old tokens)
         let startTime = v.startedAt;
         if (!startTime && (v.status === 'used' || v.status === 'voided')) {
             startTime = v.createdAt; 
         }
 
-        // Only calculate calendar expiry IF the timer has started
         if (startTime) {
             const expiryInfo = getExpiryData(startTime, v.uptimeLimit);
             expiryText = expiryInfo.text;
@@ -616,7 +639,8 @@ window.renderVoucherTable = function() {
             actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
         }
 
-        tbody.innerHTML += `
+        // Add the row to our invisible string memory
+        tableHTML += `
         <tr>
             <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
             <td style="font-weight:500;">${v.label}</td>
@@ -627,6 +651,9 @@ window.renderVoucherTable = function() {
             <td>${actionButtons}</td>
         </tr>`; 
     }); 
+
+    // Slap the entire string onto the screen in ONE clean motion
+    tbody.innerHTML = tableHTML;
 }
 
 window.voidToken = function(voucherKey, code, price, label) {
