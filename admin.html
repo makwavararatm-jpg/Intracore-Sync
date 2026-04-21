@@ -328,20 +328,25 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
             <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📡 Wi-Fi Hotspot Sales</h2>
             
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <select class="date-filter" id="wifi-date-filter">
-                    <option value="today" selected>Today's Tokens</option>
-                    <option value="yesterday">Yesterday</option>
-                    <option value="this_week">This Week</option>
-                    <option value="all_time">All Time History</option>
-                </select>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                
+                <div style="display: flex; align-items: center; background: white; padding: 4px 8px; border-radius: 8px; border: 1px solid #d1d5db; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                    <span style="font-size: 0.8rem; color: #6b7280; margin-right: 5px; font-weight: 600;">From:</span>
+                    <input type="date" id="wifi-start-date" style="border: none; background: transparent; padding: 4px; outline: none; font-family: inherit; color: #111827; font-size: 0.85rem;" onchange="window.renderVoucherTable()">
+                    
+                    <span style="font-size: 0.8rem; color: #6b7280; margin: 0 5px; font-weight: 600;">To:</span>
+                    <input type="date" id="wifi-end-date" style="border: none; background: transparent; padding: 4px; outline: none; font-family: inherit; color: #111827; font-size: 0.85rem;" onchange="window.renderVoucherTable()">
+                    
+                    <button onclick="document.getElementById('wifi-start-date').value=''; document.getElementById('wifi-end-date').value=''; window.renderVoucherTable()" style="background: transparent; border: none; padding: 4px 6px; cursor: pointer; font-size: 1rem; margin-left: 5px; color: #ef4444; border-left: 1px solid #e5e7eb;" title="Clear Dates">✖</button>
+                </div>
+
                 <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 10px 20px; font-size: 1rem; font-weight: 600; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);">➕ Sell Token</button>
             </div>
         </div>
         
         <div class="table-card" style="max-width: 100%; margin-top: 0;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2 style="margin:0;">📜 Recent Token Sales</h2>
+                <h2 style="margin:0;">📜 Token Audit Log</h2>
             </div>
             <table class="voucher-table">
                 <thead><tr><th>Token Code</th><th>Package</th><th>Delivery Mode</th><th>Status</th><th>Generated</th><th>Expiry (Calendar)</th><th>Action</th></tr></thead>
