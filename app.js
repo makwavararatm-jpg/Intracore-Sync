@@ -72,6 +72,11 @@ window.processLogin = function() {
     currentUser = foundUser.name; currentRole = foundUser.role;
     window.applyRoleBasedUI(currentRole);
 
+    // NEW FIX: Force the voucher table to draw the second they log in!
+    if (typeof window.renderVoucherTable === 'function') {
+        window.renderVoucherTable(); 
+    }
+
     document.getElementById('login-overlay').style.display = 'none'; 
     document.getElementById('active-user-name').innerText = currentUser; 
     document.getElementById('shift-user-display').innerText = currentUser;
@@ -471,7 +476,6 @@ onValue(liveNetworkRef, (snapshot) => {
 // MODULE: RECENT VOUCHERS (HOTSPOT TAB)
 // ==========================================
 
-// Helper function to calculate exact calendar expiry (Upgraded & Bulletproof)
 function getExpiryData(createdAt, uptimeStr) {
     if (!uptimeStr || String(uptimeStr).trim() === '' || String(uptimeStr).toLowerCase() === 'unlimited') {
         return { text: 'Never Expires', ms: 0 };
@@ -501,19 +505,30 @@ function getExpiryData(createdAt, uptimeStr) {
     return { text: `${dateStr}, ${timeStr}`, ms: expiryMs };
 }
 
+// NEW FIX: Store raw data safely outside the listener
+let rawVoucherData = null;
+
 onValue(vouchersRef, (snapshot) => { 
+    rawVoucherData = snapshot.val(); 
+    // ONLY draw the table automatically if someone is already logged in
+    if (currentUser) {
+        window.renderVoucherTable();
+    }
+});
+
+// NEW FIX: A dedicated drawing function we can call exactly when they clock in
+window.renderVoucherTable = function() {
     const tbody = document.getElementById('voucher-list'); 
+    if(!tbody) return;
     tbody.innerHTML = ''; 
-    const data = snapshot.val(); 
     
-    if (!data) {
+    if (!rawVoucherData) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No tokens generated yet.</td></tr>';
         return; 
     }
     
-    let vouchersArray = Object.entries(data).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
+    let vouchersArray = Object.entries(rawVoucherData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // Strict Cashier Filter
     if (currentRole !== 'admin') {
         vouchersArray = vouchersArray.filter(v => 
             String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase()
@@ -538,8 +553,6 @@ onValue(vouchersRef, (snapshot) => {
         const isExpired = expiryInfo.ms > 0 && Date.now() > expiryInfo.ms;
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        // NEW SECURITY PATCH: If they are online right now, but the database still thinks they are "active" (brand new),
-        // we permanently upgrade their database status to 'used'. 
         if (isConnected && v.status === 'active') {
             update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { status: 'used' });
         }
@@ -547,7 +560,6 @@ onValue(vouchersRef, (snapshot) => {
         let statusBadgeHTML = '';
         let canVoid = false;
 
-        // The New State Machine
         if (v.status === 'voided') {
             statusBadgeHTML = `<span class="badge-neutral" style="background:#fee2e2; color:#ef4444; text-decoration: line-through;">VOIDED</span>`;
         } else if (isExpired) {
@@ -555,18 +567,19 @@ onValue(vouchersRef, (snapshot) => {
         } else if (isConnected) {
             statusBadgeHTML = `<span class="badge-active-small" style="background:#dcfce7; color:#16a34a; font-weight: 700;">🟢 CONNECTED</span>`;
         } else if (v.status === 'used') {
-            // NEW STATE: They are offline, but they HAVE connected at least once before!
             statusBadgeHTML = `<span class="badge-neutral" style="background:#fef3c7; color:#b45309; font-weight: 700;">🟡 PAUSED</span>`;
-            canVoid = false; // Protects the void!
+            canVoid = false; 
         } else {
             statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">READY</span>`;
-            canVoid = true; // Only truly untouched tokens can be voided
+            canVoid = true; 
         }
         
-        let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${v.label}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
+        const safeLabel = v.label ? String(v.label).replace(/'/g, "\\'") : 'Token';
+
+        let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${safeLabel}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
         
         if (canVoid) {
-            actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${v.label}')">🚫 Void</button>`;
+            actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
         }
 
         tbody.innerHTML += `
@@ -580,7 +593,34 @@ onValue(vouchersRef, (snapshot) => {
             <td>${actionButtons}</td>
         </tr>`; 
     }); 
-});
+}
+
+window.voidToken = function(voucherKey, code, price, label) {
+    if(!confirm(`⚠️ Are you sure you want to VOID token ${code}?\n\nThis will disable the code and refund $${price.toFixed(2)} from your shift expected cash.`)) return;
+
+    update(ref(db, 'cafes/blessmas/wifi_vouchers/' + voucherKey), { status: 'voided', updatedAt: Date.now() });
+
+    if (price > 0) {
+        currentShiftSales -= price;
+        window.updateShiftSalesUI();
+
+        push(transactionsRef, { 
+            type: 'inflow', 
+            description: `VOID REFUND: Token ${code} (${label})`, 
+            amount: -Math.abs(price), 
+            category: 'Wi-Fi', 
+            cashier: currentUser, 
+            createdAt: Date.now() 
+        });
+    }
+
+    const kickRef = ref(db, 'cafes/blessmas/commands/kick');
+    push(kickRef, { code: code, mac: 'VOID', timestamp: Date.now() });
+
+    window.logActivity('FINANCE', `🚫 ${currentUser} voided token ${code} (Refunded $${price.toFixed(2)})`);
+    alert(`Token ${code} has been voided. Shift cash adjusted.`);
+}
+
 window.printReceipt = function(code, label, price, uptime, data, timeStr) { 
     const priceDisplay = price > 0 ? `$${parseFloat(price).toFixed(2)}` : 'FREE';
     const timeDisplay = uptime && uptime !== 'undefined' ? uptime : 'Unlimited';
