@@ -20,7 +20,6 @@ const shiftsRef = ref(db, 'cafes/blessmas/shifts');
 const staffRef = ref(db, 'cafes/blessmas/staff');
 let globalStaffData = {};
 
-// Make functions globally available to HTML buttons
 window.applyRoleBasedUI = function(role) {
     const displayStyle = role === 'admin' ? 'flex' : 'none';
     const displayGridStyle = role === 'admin' ? 'grid' : 'none';
@@ -134,7 +133,7 @@ window.deleteStaff = function(id, name) {
 }
 
 // ==========================================
-// SEGMENTED REVENUE & FINANCE TRACKER (UPGRADED LEDGER)
+// SEGMENTED REVENUE & FINANCE TRACKER (MASTER LEDGER)
 // ==========================================
 let globalPosRevenue = 0; let globalWifiRevenue = 0; let globalPcRevenue = 0; let globalManualRevenue = 0; let totalExpenses = 0;
 let posCart = []; let cartTotal = 0;
@@ -169,7 +168,6 @@ window.saveTransaction = function() {
     const amount = parseFloat(document.getElementById('trans-amount').value); 
     const category = document.getElementById('trans-category').value; 
     
-    // Explicitly mark manual income so it doesn't inflate the automated Wi-Fi/POS stats
     const finalCategory = type === 'inflow' ? 'Manual Income' : category;
 
     push(transactionsRef, { type: type, description: desc, amount: amount, category: finalCategory, cashier: currentUser, createdAt: Date.now() }).then(() => { 
@@ -178,11 +176,9 @@ window.saveTransaction = function() {
     }); 
 }
 
-// THE MASTER LEDGER CALCULATOR
 onValue(transactionsRef, (snapshot) => { 
     const tbody = document.getElementById('transactions-list'); tbody.innerHTML = ''; const data = snapshot.val(); 
     
-    // Reset all globals to recalculate from the absolute truth of the ledger
     globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
     
     if (!data) { window.updateProfitCalculator(); return; } 
@@ -190,7 +186,6 @@ onValue(transactionsRef, (snapshot) => {
     Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
         const isIncome = trans.type === 'inflow'; 
         
-        // Distribute revenue to the correct KPI cards based on category
         if (isIncome) {
             if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
             else if (trans.category === 'POS') globalPosRevenue += trans.amount;
@@ -205,7 +200,6 @@ onValue(transactionsRef, (snapshot) => {
         const amountSign = isIncome ? '+' : '-'; 
         const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
         
-        // Show cashier name in description for accountability
         const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
 
         tbody.innerHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
@@ -235,7 +229,6 @@ window.addPCTimer = function(pcId, minutes, priceStr) {
         currentShiftSales += price; 
         window.updateShiftSalesUI(); 
 
-        // NEW: Officially log the PC Rental
         push(transactionsRef, { 
             type: 'inflow', 
             description: `PC Rental: ${pcId.replace('_', ' ')} for ${minutes} mins`, 
@@ -327,10 +320,8 @@ window.checkoutCart = function() {
     currentShiftSales += cartTotal; 
     window.updateShiftSalesUI(); 
 
-    // Extract item names for the receipt description
     const itemNames = posCart.map(i => i.name).join(', ');
 
-    // NEW: Officially log the POS sale
     push(transactionsRef, { 
         type: 'inflow', 
         description: `POS Sale: ${itemNames}`, 
@@ -392,7 +383,6 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
         currentShiftSales += price; 
         window.updateShiftSalesUI(); 
         
-        // NEW: Officially log the sale in the financial ledger
         push(transactionsRef, { 
             type: 'inflow', 
             description: `Sold Wi-Fi Token: ${newToken} (${name})`, 
@@ -405,14 +395,11 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
     
     let logMsg = `${currentUser} generated <strong>${newToken}</strong> (${name}) for $${price.toFixed(2)}`;
     
-    // --- NEW SECURE SMS TRIGGER ---
     if(phoneInput) { 
-        // Auto-format for Zimbabwe if they just type 07...
         let formattedPhone = phoneInput.trim();
         if (formattedPhone.startsWith('0')) formattedPhone = '+263' + formattedPhone.substring(1);
         if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone;
 
-        // Push to Firebase for the Bridge to handle securely
         const smsRef = ref(db, 'cafes/blessmas/commands/sms');
         push(smsRef, {
             to: formattedPhone,
@@ -432,21 +419,19 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
 // MODULE: REAL-TIME LIVE NETWORK TELEMETRY
 // ==========================================
 const liveNetworkRef = ref(db, 'cafes/blessmas/live_network');
-window.liveActiveCodes = []; // NEW: Global array to store online codes
+window.liveActiveCodes = [];
 
 onValue(liveNetworkRef, (snapshot) => {
     const tbody = document.getElementById('live-network-list');
     const rawData = snapshot.val();
     
-    // FIX: Force Firebase data to become a clean JavaScript Array
     let deviceArray = [];
     if (rawData) {
         deviceArray = Array.isArray(rawData) ? rawData : Object.values(rawData);
     }
     
-    window.liveActiveCodes = []; // Clear the list on every update
+    window.liveActiveCodes = []; 
     
-    // If it's truly empty, show the message
     if(deviceArray.length === 0) { 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No devices physically connected right now.</td></tr>'; 
         document.getElementById('total-down-speed').innerText = "0.00 Mbps"; 
@@ -459,12 +444,11 @@ onValue(liveNetworkRef, (snapshot) => {
     let totalDown = 0; 
     let totalUp = 0;
     
-    // Now loop through the safe array
     deviceArray.forEach(device => {
         totalDown += parseFloat(device.downloadSpeed || 0); 
         totalUp += parseFloat(device.uploadSpeed || 0);
         
-        window.liveActiveCodes.push(device.code); // NEW: Save the code as currently online
+        window.liveActiveCodes.push(device.code); 
         
         tbody.innerHTML += `
         <tr>
@@ -487,16 +471,27 @@ onValue(liveNetworkRef, (snapshot) => {
 // MODULE: RECENT VOUCHERS (HOTSPOT TAB)
 // ==========================================
 
-// Helper function to calculate exact calendar expiry
+// Helper function to calculate exact calendar expiry (Upgraded & Bulletproof)
 function getExpiryData(createdAt, uptimeStr) {
-    if (!uptimeStr || uptimeStr.toLowerCase() === 'unlimited') return { text: 'Never Expires', ms: 0 };
+    if (!uptimeStr || String(uptimeStr).trim() === '' || String(uptimeStr).toLowerCase() === 'unlimited') {
+        return { text: 'Never Expires', ms: 0 };
+    }
     
     let msToAdd = 0;
-    const val = parseInt(uptimeStr);
-    if (uptimeStr.includes('m')) msToAdd = val * 60 * 1000;
-    else if (uptimeStr.includes('h')) msToAdd = val * 60 * 60 * 1000;
-    else if (uptimeStr.includes('d')) msToAdd = val * 24 * 60 * 60 * 1000;
-    else return { text: 'Unknown', ms: 0 };
+    const str = String(uptimeStr).toLowerCase(); 
+    const val = parseInt(str); 
+    
+    if (isNaN(val)) return { text: 'Unknown', ms: 0 };
+
+    if (str.includes('m') && !str.includes('mo')) {
+        msToAdd = val * 60 * 1000; 
+    } else if (str.includes('h')) {
+        msToAdd = val * 60 * 60 * 1000; 
+    } else if (str.includes('d')) {
+        msToAdd = val * 24 * 60 * 60 * 1000; 
+    } else {
+        msToAdd = val * 60 * 60 * 1000; 
+    }
 
     const expiryMs = createdAt + msToAdd;
     const dateObj = new Date(expiryMs);
@@ -518,9 +513,11 @@ onValue(vouchersRef, (snapshot) => {
     
     let vouchersArray = Object.values(data).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // Filter for Cashiers (Admins see all)
+    // Strict Cashier Filter (ignores case and spaces)
     if (currentRole !== 'admin') {
-        vouchersArray = vouchersArray.filter(v => v.cashier === currentUser);
+        vouchersArray = vouchersArray.filter(v => 
+            String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase()
+        );
     }
 
     if (vouchersArray.length === 0) {
@@ -530,9 +527,14 @@ onValue(vouchersRef, (snapshot) => {
     
     vouchersArray.slice(0, 15).forEach(v => { 
         const dateStr = new Date(v.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
-        const deliveryBadge = v.cashier === 'BULK_SYSTEM' ? `<span class="badge-neutral" style="color: #8b5cf6; border-color: #8b5cf6;">🖨️ Bulk Print</span>` : (v.phone ? `<span class="badge-neutral" style="color: #0ea5e9; border-color: #0ea5e9;">📱 SMS Sent</span>` : `<span class="badge-neutral">📄 Printed</span>`);
         
-        // Calculate Expiry and Determine Dynamic Status
+        const deliveryBadge = v.cashier === 'BULK_SYSTEM' 
+            ? `<span class="badge-neutral" style="color: #8b5cf6; border-color: #8b5cf6;">🖨️ Bulk Print</span>` 
+            : (v.phone ? `<span class="badge-neutral" style="color: #0ea5e9; border-color: #0ea5e9;">📱 SMS Sent</span>` : `<span class="badge-neutral">📄 Printed</span>`);
+        
+        // Display Cashier Name
+        const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'}</div>`;
+
         const expiryInfo = getExpiryData(v.createdAt, v.uptimeLimit);
         const isExpired = expiryInfo.ms > 0 && Date.now() > expiryInfo.ms;
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
@@ -547,12 +549,11 @@ onValue(vouchersRef, (snapshot) => {
             statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">ACTIVE</span>`;
         }
         
-        // 7 Columns exactly matching the HTML headers
         tbody.innerHTML += `
         <tr>
             <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
             <td style="font-weight:500;">${v.label}</td>
-            <td>${deliveryBadge}</td>
+            <td>${deliveryBadge}${cashierDisplay}</td>
             <td>${statusBadgeHTML}</td>
             <td style="color:#6b7280; font-size:0.8rem;">${dateStr}</td>
             <td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryInfo.text}</td>
@@ -593,6 +594,7 @@ window.printReceipt = function(code, label, price, uptime, data, timeStr) {
     printWindow.focus(); 
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); 
 }
+
 // ==========================================
 // MODULE: BULK PRINTING & SCRATCH CARDS
 // ==========================================
@@ -617,7 +619,6 @@ window.generateBulkTokens = function() {
         let newToken = ''; 
         for (let i = 0; i < 5; i++) newToken += chars.charAt(Math.floor(Math.random() * chars.length)); 
         
-        // SAVE the extra data so the print grid can see it
         latestBulkBatch.push({ code: newToken, package: name, price: price, uptime: uptime, data: dataLimit });
 
         push(vouchersRef, { 
@@ -689,7 +690,6 @@ window.printBulkGrid = function() {
 window.kickUser = function(code, mac) {
     if(!confirm(`⚠️ Are you sure you want to disconnect ${code} from the network?`)) return;
     
-    // Send the command to Firebase
     const kickRef = ref(db, 'cafes/blessmas/commands/kick');
     push(kickRef, { 
         code: code, 
