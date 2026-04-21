@@ -18,7 +18,8 @@
     .login-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; text-align: center; color: #111827; width: 280px; }
     .login-card h2 { margin-top: 0; font-size: 1.4rem; color: #0f3460; font-weight: 600;}
     .pin-input { font-size: 1.8rem; letter-spacing: 12px; text-align: center; width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin: 15px 0; font-family: monospace; outline: none; }
-    .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 10px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 10px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+    .btn-login:hover { background: #0284c7; }
 
     /* --- TOP NAVIGATION BAR --- */
     .sidebar { width: 100vw; background: #0f3460; color: white; height: 65px; position: fixed; top: 0; left: 0; display: flex; flex-direction: row; align-items: center; padding: 0 20px; z-index: 100; box-sizing: border-box; }
@@ -42,9 +43,10 @@
     .app-section.active-section { display: block; animation: fadeIn 0.2s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    /* Quick Actions */
+    /* Quick Actions & Filters */
     .quick-btn { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: #111827; }
     .quick-btn:hover { background: #e5e7eb; }
+    .date-filter { padding: 8px 12px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.85rem; font-weight: 500; background: white; color: #374151; cursor: pointer; outline: none; }
 
     /* --- DASHBOARD METRICS (FULL WIDTH GRID) --- */
     .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; width: 100%; }
@@ -87,10 +89,6 @@
     .pc-controls button.stop { background: #fee2e2; color: #ef4444; border-color: #fca5a5; width: 100%;}
 
     /* --- MODULE STYLES (Cards, Tables) --- */
-    .grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-    .pc-card { background: white; border-radius: 12px; border: 1px solid #f0f0f0; width: 320px; padding: 20px; text-align: left; box-shadow: 0 2px 8px rgba(0,0,0,0.05);}
-    .pc-title { font-size: 1.2rem; color: #111827; margin-bottom: 15px; font-weight: 600; }
-    
     .table-card { width: 100%; margin: 15px 0; background: white; padding: 20px; border-radius: 12px; border: 1px solid #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);}
     .table-card h2 { margin-top: 0; color: #111827; font-size: 1.2rem; margin-bottom: 15px; font-weight: 600;}
     
@@ -138,87 +136,43 @@
     .mobile-menu-btn { display: none !important; }
     
     @media (max-width: 768px) {
-        /* 1. Reset main content spacing */
         .main-content { padding: 15px; margin-top: 60px; margin-bottom: 75px; }
-        
-        /* 2. Top Sidebar: Clean and centered */
         .sidebar { justify-content: center; height: 60px; }
         .sidebar-brand { margin-right: 0; font-size: 1.2rem; }
         
-        /* 3. Bottom App Navigation (SWIPEABLE SCROLL) */
         .nav-menu { 
             position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #0f3460; 
             display: flex; flex-direction: row; align-items: center; 
             padding: 0; margin: 0; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.15); 
-            
-            /* The Magic Scroll Rules */
-            overflow-x: auto; 
-            justify-content: flex-start; /* Aligns them in a row instead of squishing them */
-            scroll-behavior: smooth;
+            overflow-x: auto; justify-content: flex-start; scroll-behavior: smooth;
         }
         
-        .nav-item { 
-            flex-direction: column; justify-content: center; gap: 4px; font-size: 0.7rem; 
-            padding: 8px 15px; text-align: center; border-radius: 0; 
-            
-            /* Prevents them from shrinking, forcing the user to swipe to see more */
-            flex: 0 0 auto; 
-            min-width: 65px; 
-        }
+        .nav-item { flex-direction: column; justify-content: center; gap: 4px; font-size: 0.7rem; padding: 8px 15px; text-align: center; border-radius: 0; flex: 0 0 auto; min-width: 65px; }
         .nav-item:hover { background: transparent; }
         .nav-item.active { background: rgba(255,255,255,0.1); border-top: 3px solid #38bdf8; color: #38bdf8; }
 
-        /* 4. THE 2-COLUMN MAGNIFICENCE: Quick Actions */
-        .quick-actions-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 10px; 
-            margin-bottom: 20px;
-            width: 100%;
-        }
-        .quick-btn { 
-            width: 100%; 
-            padding: 12px 5px; 
-            font-size: 0.85rem;
-            margin-bottom: 0; 
-            white-space: nowrap; 
-        }
+        .quick-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; width: 100%; }
+        .quick-btn { width: 100%; padding: 12px 5px; font-size: 0.85rem; margin-bottom: 0; white-space: nowrap; }
 
-        /* 5. REVENUE METRICS: 2 Cards per row */
-        .dashboard-grid { 
-            grid-template-columns: 1fr 1fr !important;
-            gap: 12px !important; 
-        }
+        .dashboard-grid { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
         .metric-card { padding: 15px 12px; }
         .metric-title { font-size: 0.75rem; white-space: nowrap; }
         .metric-value { font-size: 1.1rem; }
         
-        /* Custom Flexbox for the Net Profit Card */
-        .net-profit-card { 
-            grid-column: span 2; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 15px 20px; 
-            width: 100%; 
-            box-sizing: border-box; 
-        }
+        .net-profit-card { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; width: 100%; box-sizing: border-box; }
         .net-profit-card .metric-title { margin: 0; font-size: 0.9rem; }
         .net-profit-card .metric-value { margin: 0; font-size: 1.4rem; font-weight: bold; }
         
-        /* 6. Key Sections & Grids */
         .header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
         .header h1 { font-size: 1.3rem; margin-top: 5px; }
         .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
         
-        /* 7. PC Stations & POS Fixes */
         .pc-grid-container { grid-template-columns: 1fr 1fr; gap: 10px; }
         .pc-node { padding: 12px; }
         .pc-node-time { font-size: 1.1rem; }
         .pos-grid { grid-template-columns: 1fr; gap: 20px; }
         .items-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
         
-        /* 8. Full-screen sliding panels & Tables */
         .side-panel { width: 100%; right: -100%; padding: 20px; }
         .table-card { overflow-x: auto; padding: 15px; width: 100%; box-sizing: border-box;}
         .voucher-table { min-width: 500px; } 
@@ -255,13 +209,13 @@
       <li class="nav-item" id="nav-staff" onclick="window.switchTab('staff', this)">👥 Staff</li>
       <li class="nav-item" id="nav-settings" onclick="window.switchTab('settings', this)">⚙️ Settings</li>
     </ul>
-    <div class="sidebar-footer">v3.1.0 Flat<br>© 2026 IntraCore.Digital</div>
+    <div class="sidebar-footer">v3.2.0 Finance Update<br>© 2026 IntraCore.Digital</div>
   </div>
 
   <div class="main-content">
     
     <div class="header">
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 15px;">
             <h1 id="page-title">Analytics Dashboard</h1>
         </div>
         <div class="user-profile">
@@ -276,19 +230,31 @@
 
     <div id="sec-dashboard" class="app-section active-section">
       
-    <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 1.1rem; color: #111827; margin: 0 0 12px 0; font-weight: 600;">⚡ Quick Actions</h3>
-        
-        <div class="quick-actions-grid">
-          <button class="quick-btn" onclick="window.switchTab('hotspot', document.querySelectorAll('.nav-item')[3])">🎟️ Sell Token</button>
-          <button class="quick-btn" onclick="window.switchTab('pos', document.querySelectorAll('.nav-item')[4])">🛒 Open POS</button>
-          <button class="quick-btn" onclick="window.switchTab('pc', document.querySelectorAll('.nav-item')[2])">💻 Manage PCs</button>
-          <button class="quick-btn" onclick="window.openPanel('bulk-generate')" style="border-color: #0ea5e9; color: #0ea5e9;">🖨️ Bulk Print</button>
-        </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+          <div>
+              <h3 style="font-size: 1.1rem; color: #111827; margin: 0 0 12px 0; font-weight: 600;">⚡ Quick Actions</h3>
+              <div class="quick-actions-grid">
+                <button class="quick-btn" onclick="window.switchTab('hotspot', document.querySelectorAll('.nav-item')[3])">🎟️ Sell Token</button>
+                <button class="quick-btn" onclick="window.switchTab('pos', document.querySelectorAll('.nav-item')[4])">🛒 Open POS</button>
+                <button class="quick-btn" onclick="window.switchTab('pc', document.querySelectorAll('.nav-item')[2])">💻 Manage PCs</button>
+                <button class="quick-btn" onclick="window.openPanel('bulk-generate')" style="border-color: #0ea5e9; color: #0ea5e9;">🖨️ Bulk Print</button>
+              </div>
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 15px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <span style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">Filter Data:</span>
+              <select class="date-filter" id="global-date-filter">
+                  <option value="today">Today (Current Shift)</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                  <option value="all_time" selected>All Time History</option>
+              </select>
+          </div>
       </div>
 
       <div class="dashboard-grid" id="admin-revenue-row">
-        <div class="metric-card"><div class="metric-title">Total Revenue</div><div class="metric-value" id="dash-total-rev">$0.00</div></div>
+        <div class="metric-card"><div class="metric-title">Total Gross Revenue</div><div class="metric-value" id="dash-total-rev">$0.00</div></div>
         <div class="metric-card"><div class="metric-title">Wi-Fi Revenue</div><div class="metric-value" id="dash-wifi-rev" style="color: #0284c7;">$0.00</div></div>
         <div class="metric-card"><div class="metric-title">POS Revenue</div><div class="metric-value" id="dash-pos-rev" style="color: #16a34a;">$0.00</div></div>
         <div class="metric-card"><div class="metric-title">PC Revenue</div><div class="metric-value" id="dash-pc-rev" style="color: #ea580c;">$0.00</div></div>
@@ -337,41 +303,55 @@
           <div class="metric-card" style="border-left: 4px solid #10b981;"><div class="metric-title">Active Connections</div><div class="metric-value" id="network-active-count">0</div></div>
         </div>
         <div class="table-card" style="width: 100%; max-width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;"><span class="live-dot"></span> Connected Devices</h2><span style="color: #10b981; font-size: 0.85rem;">(Live Data)</span></div><table class="voucher-table"><thead><tr><th>Status</th><th>Voucher Code</th><th>Device MAC/IP</th><th>⬇️ Download</th><th>⬆️ Upload</th><th>⏳ Time Left</th><th>Action</th></tr></thead><tbody id="live-network-list"><tr><td colspan="7" style="text-align: center; color: #9ca3af;">Loading telemetry data...</td></tr></tbody></table></div>
-      </div>
+    </div>
   
-      <div id="sec-finances" class="app-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📋 Financial Ledger</h2><button onclick="window.openPanel('finance')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Log Transaction</button></div>
-        <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><table class="voucher-table"><thead><tr><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Time</th></tr></thead><tbody id="transactions-list"><tr><td colspan="5">Loading ledger...</td></tr></tbody></table></div>
-      </div>
-  
-      <div id="sec-hotspot" class="app-section">
+    <div id="sec-finances" class="app-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📡 Wi-Fi Hotspot</h2>
-            <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2);">➕ Generate New Token</button>
+            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📋 Master Financial Ledger</h2>
+            <div style="display: flex; gap: 10px;">
+                <select class="date-filter" id="ledger-date-filter">
+                    <option value="all_time" selected>All Transactions</option>
+                    <option value="today">Today Only</option>
+                </select>
+                <button onclick="window.openPanel('finance')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Log Manual Expense</button>
+            </div>
+        </div>
+        <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;">
+            <table class="voucher-table">
+                <thead><tr><th>Transaction Details (Item / Cashier)</th><th>Department</th><th>Type</th><th>Amount</th><th>Timestamp</th></tr></thead>
+                <tbody id="transactions-list"><tr><td colspan="5">Loading ledger...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+  
+    <div id="sec-hotspot" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📡 Wi-Fi Hotspot Sales</h2>
+            <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 10px 20px; font-size: 1rem; font-weight: 600; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);">➕ Sell Token</button>
         </div>
         
         <div class="table-card" style="max-width: 100%; margin-top: 0;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2 style="margin:0;">📜 Recent Vouchers</h2>
+                <h2 style="margin:0;">📜 Recent Token Sales</h2>
             </div>
             <table class="voucher-table">
-                <thead><tr><th>Code</th><th>Package</th><th>Delivery</th><th>Status</th><th>Generated</th><th>Action</th></tr></thead>
+                <thead><tr><th>Token Code</th><th>Package</th><th>Delivery Mode</th><th>Status</th><th>Time Generated</th><th>Action</th></tr></thead>
                 <tbody id="voucher-list"><tr><td colspan="6">Loading vouchers...</td></tr></tbody>
             </table>
         </div>
-      </div>
+    </div>
   
-      <div id="sec-pos" class="app-section">
+    <div id="sec-pos" class="app-section">
         <div class="pos-grid">
           <div><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600; margin-bottom: 15px;">Cafe Items & Services</h2><div class="items-grid"><div class="item-card" onclick="window.addToCart('A4 Print (B&W)', 0.10)"><div class="item-icon">📄</div><div class="item-name">Print B&W</div><div class="item-price">$0.10</div></div><div class="item-card" onclick="window.addToCart('A4 Print (Color)', 0.50)"><div class="item-icon">🖼️</div><div class="item-name">Print Color</div><div class="item-price">$0.50</div></div><div class="item-card" onclick="window.addToCart('Coca-Cola 500ml', 1.00)"><div class="item-icon">🥤</div><div class="item-name">Coca-Cola</div><div class="item-price">$1.00</div></div><div class="item-card" onclick="window.addToCart('Potato Chips', 1.50)"><div class="item-icon">🍟</div><div class="item-name">Chips</div><div class="item-price">$1.50</div></div></div></div>
           <div class="cart-panel"><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Current Order</h2><div id="cart-items-list" class="cart-items"><p style="color: #9ca3af; text-align: center; margin-top: 50px;">Cart is empty</p></div><div class="cart-total"><span>Total:</span><span id="cart-total-price">$0.00</span></div><button class="btn-checkout" onclick="window.checkoutCart()">Complete Sale</button></div>
         </div>
-      </div>
+    </div>
   
-      <div id="sec-settings" class="app-section">
+    <div id="sec-settings" class="app-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📦 Active Voucher Profiles</h2><button onclick="window.openPanel('settings')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Create New Package</button></div>
         <div class="table-card" style="width: 100%; max-width: 100%; margin-top:0;"><table class="voucher-table"><thead><tr><th>Package Name</th><th>Price</th><th>Time Limit</th><th>Data Quota</th><th>Speed Limit</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="packages-list"><tr><td colspan="6">Loading packages...</td></tr></tbody></table></div>
-      </div>
+    </div>
 
   </div>
 
@@ -379,14 +359,14 @@
 
   <div class="side-panel" id="panel-generate-token">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">🎟️ Generate Token</h2>
+        <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">🎟️ Sell Token</h2>
         <button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button>
     </div>
     
     <div style="text-align: center; margin-bottom: 20px; background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
         <div id="generated-token" style="font-size: 2.5rem; color: #10b981; letter-spacing: 6px; font-family: monospace; font-weight: 700;">------</div>
-        <input type="text" id="customer-phone" placeholder="📞 Phone Number (Optional)" style="margin-top: 15px; margin-bottom: 10px; padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.95rem; text-align: center; box-sizing: border-box;">
-        <p style="color: #6b7280; margin-top: 0; font-size: 0.85rem;">Click a package below to generate</p>
+        <input type="text" id="customer-phone" placeholder="📞 Customer Phone (Optional)" style="margin-top: 15px; margin-bottom: 10px; padding: 10px; width: 100%; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.95rem; text-align: center; box-sizing: border-box;">
+        <p style="color: #6b7280; margin-top: 0; font-size: 0.85rem;">Tap a package below to instantly log the sale and generate the code.</p>
     </div>
     
     <div id="dynamic-package-buttons" style="display: flex; flex-direction: column; gap: 10px;">
@@ -432,8 +412,8 @@
   </div>
 
   <div class="side-panel" id="panel-finance">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">💸 Log Transaction</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
-    <form id="finance-form" onsubmit="event.preventDefault(); window.saveTransaction();"><div class="form-group"><label>Transaction Type</label><select id="trans-type" style="font-weight: 500;"><option value="inflow">🟢 Income (Inflow)</option><option value="outflow">🔴 Expense (Outflow)</option></select></div><div class="form-group"><label>Description</label><input type="text" id="trans-desc" required></div><div class="form-group"><label>Amount ($)</label><input type="number" id="trans-amount" step="0.01" required></div><div class="form-group"><label>Category</label><select id="trans-category"><option value="Services">Services & Sales</option><option value="Supplies">Supplies & Stock</option><option value="Utilities">Utilities</option><option value="Other">Other</option></select></div><button type="submit" id="btn-trans-submit" class="btn-primary">📝 Save Transaction</button></form>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">💸 Log Manual Transaction</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
+    <form id="finance-form" onsubmit="event.preventDefault(); window.saveTransaction();"><div class="form-group"><label>Transaction Type</label><select id="trans-type" style="font-weight: 500;"><option value="inflow">🟢 Income (Manual Cash In)</option><option value="outflow">🔴 Expense (Money Out)</option></select></div><div class="form-group"><label>Description</label><input type="text" id="trans-desc" required placeholder="e.g. Paid for generator fuel"></div><div class="form-group"><label>Amount ($)</label><input type="number" id="trans-amount" step="0.01" required></div><div class="form-group"><label>Category</label><select id="trans-category"><option value="Supplies">Supplies & Stock</option><option value="Utilities">Utilities & Fuel</option><option value="Salaries">Staff Salaries</option><option value="Other">Other</option></select></div><button type="submit" id="btn-trans-submit" class="btn-primary">📝 Save to Ledger</button></form>
   </div>
 
   <script type="module" src="app.js"></script>
