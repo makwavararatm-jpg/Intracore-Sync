@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Blessmas POS | Teller View</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; color: #111827; overflow-x: hidden; }
+
+    /* --- LOGIN OVERLAY --- */
+    #login-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f3460; z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; }
+    .login-card { background: white; padding: 30px; border-radius: 12px; text-align: center; color: #111827; width: 85%; max-width: 320px; }
+    .pin-input { font-size: 2rem; letter-spacing: 15px; text-align: center; width: 100%; padding: 15px; border: 2px solid #d1d5db; border-radius: 8px; margin: 20px 0; outline: none; box-sizing: border-box; }
+    .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 15px; font-size: 1.1rem; border: none; border-radius: 8px; font-weight: 700; }
+
+    /* --- TOP HEADER --- */
+    .header { background: #0f3460; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .user-info { display: flex; flex-direction: column; }
+    .user-name { font-weight: 700; font-size: 1.1rem; }
+    .shift-status { font-size: 0.75rem; color: #38bdf8; font-weight: 600; }
+    .btn-logout { background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; }
+
+    /* --- MAIN CONTENT --- */
+    .container { padding: 15px; padding-bottom: 100px; }
+    
+    .section-title { font-size: 0.9rem; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px 0; }
+
+    /* --- WI-FI TOKEN AREA --- */
+    .wifi-display { background: #10b981; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
+    .wifi-display p { margin: 0 0 5px 0; font-size: 0.85rem; opacity: 0.9; }
+    #generated-token { font-size: 2.8rem; font-family: monospace; font-weight: 800; letter-spacing: 4px; margin: 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+
+    .phone-input-wrapper { margin-bottom: 15px; }
+    #customer-phone { width: 100%; padding: 15px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 1rem; text-align: center; box-sizing: border-box; }
+
+    /* The container for dynamic buttons injected by app.js */
+    #dynamic-package-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* Overriding the default app.js inline styles for mobile teller view */
+    #dynamic-package-buttons button { flex-direction: column !important; text-align: center !important; padding: 15px 10px !important; background: white !important; border: 2px solid #e5e7eb !important; }
+    #dynamic-package-buttons button:active { border-color: #0ea5e9 !important; background: #f0f9ff !important; }
+    #dynamic-package-buttons button div:first-child { font-size: 0.9rem !important; color: #4b5563 !important; margin-bottom: 5px; }
+    #dynamic-package-buttons button div:last-child { font-size: 1.2rem !important; color: #111827 !important; }
+
+    /* --- CAFE POS AREA --- */
+    .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .item-card { background: white; border: 2px solid #e5e7eb; border-radius: 12px; padding: 15px 10px; text-align: center; }
+    .item-card:active { border-color: #10b981; background: #ecfdf5; }
+    .item-icon { font-size: 2rem; margin-bottom: 5px; }
+    .item-name { font-weight: 600; font-size: 0.9rem; color: #374151; }
+    .item-price { color: #10b981; font-weight: 700; font-size: 1rem; }
+
+    /* --- SHIFT LEDGER (Like your image) --- */
+    .ledger-card { background: white; border-radius: 12px; padding: 15px; margin-top: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .ledger-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 700; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 10px; }
+    .ledger-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px dashed #f3f4f6; }
+    .ledger-time { color: #9ca3af; width: 60px; }
+    .ledger-item { flex-grow: 1; font-weight: 500; color: #111827; }
+    .ledger-total { font-weight: 700; color: #10b981; text-align: right; }
+
+    /* --- FIXED BOTTOM CART & CHECKOUT --- */
+    .bottom-cart { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e5e7eb; padding: 15px; box-sizing: border-box; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); z-index: 90; }
+    .cart-summary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .cart-summary span { font-weight: 600; color: #4b5563; font-size: 0.9rem; }
+    #cart-total-price { font-size: 1.4rem; font-weight: 800; color: #111827; }
+    .btn-checkout { background: #10b981; color: white; width: 100%; padding: 15px; font-size: 1.1rem; font-weight: 700; border-radius: 8px; border: none; }
+    
+    /* Hide specific sections so app.js doesn't throw errors, but we don't show them */
+    .hidden-logic { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div id="login-overlay">
+    <h1 style="margin-bottom: 5px; letter-spacing: 2px;">Blessmas <span style="color: #38bdf8;">POS</span></h1>
+    <p style="color: #cbd5e1; margin-bottom: 30px;">Teller Access</p>
+    <div class="login-card">
+        <h2 style="margin: 0; font-size: 1.2rem; font-weight: 700; color:#111827;">Clock In</h2>
+        <form onsubmit="event.preventDefault(); window.processLogin();">
+            <input type="password" id="login-pin" class="pin-input" maxlength="4" placeholder="••••" required autocomplete="off" inputmode="numeric">
+            <button type="submit" class="btn-login">Unlock POS</button>
+        </form>
+    </div>
+  </div>
+
+  <div class="header">
+    <div class="user-info">
+        <span class="user-name" id="active-user-name">Loading...</span>
+        <span class="shift-status">Shift Active • <span id="current-shift-sales">$0.00</span> Expected</span>
+    </div>
+    <button class="btn-logout" onclick="window.clockOut()">Clock Out</button>
+  </div>
+
+  <div class="container">
+    
+    <div class="section-title">1. Generate Wi-Fi Token</div>
+    
+    <div class="wifi-display">
+        <p>Latest Token Generated</p>
+        <div id="generated-token">------</div>
+    </div>
+
+    <div class="phone-input-wrapper">
+        <input type="tel" id="customer-phone" placeholder="📱 Customer Phone for SMS (Optional)" inputmode="numeric">
+    </div>
+
+    <div id="dynamic-package-buttons">
+        <p style="text-align:center; color:#9ca3af; grid-column: span 2;">Loading packages...</p>
+    </div>
+
+    <div class="section-title" style="margin-top: 30px;">2. Sell Cafe Items</div>
+    
+    <div class="items-grid">
+        <div class="item-card" onclick="window.addToCart('A4 Print (B&W)', 0.10)">
+            <div class="item-icon">📄</div>
+            <div class="item-name">Print B&W</div>
+            <div class="item-price">$0.10</div>
+        </div>
+        <div class="item-card" onclick="window.addToCart('A4 Print (Color)', 0.50)">
+            <div class="item-icon">🖼️</div>
+            <div class="item-name">Print Color</div>
+            <div class="item-price">$0.50</div>
+        </div>
+        <div class="item-card" onclick="window.addToCart('Coca-Cola 500ml', 1.00)">
+            <div class="item-icon">🥤</div>
+            <div class="item-name">Coca-Cola</div>
+            <div class="item-price">$1.00</div>
+        </div>
+        <div class="item-card" onclick="window.addToCart('Potato Chips', 1.50)">
+            <div class="item-icon">🍟</div>
+            <div class="item-name">Chips</div>
+            <div class="item-price">$1.50</div>
+        </div>
+    </div>
+
+    <div class="ledger-card">
+        <div class="ledger-header">
+            <span style="width: 60px;">TIME</span>
+            <span style="flex-grow: 1;">ITEMS</span>
+            <span style="text-align: right;">TOTAL</span>
+        </div>
+        <div id="activity-stream">
+            <div style="text-align: center; padding: 20px 0; color: #9ca3af; font-size: 0.85rem;">No sales recorded yet this shift.</div>
+        </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-cart">
+    <div class="cart-summary">
+        <span id="cart-items-list">Cart is empty</span>
+        <span id="cart-total-price">$0.00</span>
+    </div>
+    <button class="btn-checkout" onclick="window.checkoutCart()">Complete Sale</button>
+  </div>
+
+  <div class="hidden-logic">
+      <div id="nav-finances"></div><div id="nav-shifts"></div><div id="nav-settings"></div><div id="nav-staff"></div>
+      <div id="admin-revenue-row"></div><div id="card-profit"></div><div class="nav-item"></div>
+      <div id="shift-user-display"></div>
+      <div id="dash-total-rev"></div><div id="dash-wifi-rev"></div><div id="dash-pos-rev"></div><div id="dash-pc-rev"></div><div id="dash-profit"></div>
+      <div id="shifts-list"></div><div id="transactions-list"></div><div id="multi-pc-grid"></div><div id="staff-list"></div>
+      <div id="total-down-speed"></div><div id="total-up-speed"></div><div id="network-active-count"></div><div id="live-network-list"></div>
+      <div id="voucher-list"></div><div id="packages-list"></div><div id="bulk-pkg-select"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
