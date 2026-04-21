@@ -511,9 +511,9 @@ onValue(vouchersRef, (snapshot) => {
         return; 
     }
     
-    let vouchersArray = Object.values(data).sort((a, b) => b.createdAt - a.createdAt); 
+    let vouchersArray = Object.entries(data).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // Strict Cashier Filter (ignores case and spaces)
+    // Strict Cashier Filter
     if (currentRole !== 'admin') {
         vouchersArray = vouchersArray.filter(v => 
             String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase()
@@ -532,23 +532,43 @@ onValue(vouchersRef, (snapshot) => {
             ? `<span class="badge-neutral" style="color: #8b5cf6; border-color: #8b5cf6;">🖨️ Bulk Print</span>` 
             : (v.phone ? `<span class="badge-neutral" style="color: #0ea5e9; border-color: #0ea5e9;">📱 SMS Sent</span>` : `<span class="badge-neutral">📄 Printed</span>`);
         
-        // Display Cashier Name
         const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'}</div>`;
 
         const expiryInfo = getExpiryData(v.createdAt, v.uptimeLimit);
         const isExpired = expiryInfo.ms > 0 && Date.now() > expiryInfo.ms;
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        let statusBadgeHTML = `<span class="badge-neutral" style="background:#f3f4f6; color:#374151;">READY</span>`;
+        // NEW SECURITY PATCH: If they are online right now, but the database still thinks they are "active" (brand new),
+        // we permanently upgrade their database status to 'used'. 
+        if (isConnected && v.status === 'active') {
+            update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { status: 'used' });
+        }
 
-        if (isExpired) {
-            statusBadgeHTML = `<span class="badge-neutral" style="background:#fee2e2; color:#ef4444; text-decoration: line-through;">FINISHED</span>`;
+        let statusBadgeHTML = '';
+        let canVoid = false;
+
+        // The New State Machine
+        if (v.status === 'voided') {
+            statusBadgeHTML = `<span class="badge-neutral" style="background:#fee2e2; color:#ef4444; text-decoration: line-through;">VOIDED</span>`;
+        } else if (isExpired) {
+            statusBadgeHTML = `<span class="badge-neutral" style="background:#f3f4f6; color:#9ca3af; text-decoration: line-through;">FINISHED</span>`;
         } else if (isConnected) {
             statusBadgeHTML = `<span class="badge-active-small" style="background:#dcfce7; color:#16a34a; font-weight: 700;">🟢 CONNECTED</span>`;
+        } else if (v.status === 'used') {
+            // NEW STATE: They are offline, but they HAVE connected at least once before!
+            statusBadgeHTML = `<span class="badge-neutral" style="background:#fef3c7; color:#b45309; font-weight: 700;">🟡 PAUSED</span>`;
+            canVoid = false; // Protects the void!
         } else {
-            statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">ACTIVE</span>`;
+            statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">READY</span>`;
+            canVoid = true; // Only truly untouched tokens can be voided
         }
         
+        let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${v.label}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
+        
+        if (canVoid) {
+            actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${v.label}')">🚫 Void</button>`;
+        }
+
         tbody.innerHTML += `
         <tr>
             <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
@@ -557,11 +577,10 @@ onValue(vouchersRef, (snapshot) => {
             <td>${statusBadgeHTML}</td>
             <td style="color:#6b7280; font-size:0.8rem;">${dateStr}</td>
             <td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryInfo.text}</td>
-            <td><button class="btn-print" onclick="printReceipt('${v.code}', '${v.label}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button></td>
+            <td>${actionButtons}</td>
         </tr>`; 
     }); 
 });
-
 window.printReceipt = function(code, label, price, uptime, data, timeStr) { 
     const priceDisplay = price > 0 ? `$${parseFloat(price).toFixed(2)}` : 'FREE';
     const timeDisplay = uptime && uptime !== 'undefined' ? uptime : 'Unlimited';
