@@ -325,9 +325,18 @@
     </div>
   
     <div id="sec-hotspot" class="app-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
             <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📡 Wi-Fi Hotspot Sales</h2>
-            <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 10px 20px; font-size: 1rem; font-weight: 600; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);">➕ Sell Token</button>
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select class="date-filter" id="wifi-date-filter">
+                    <option value="today" selected>Today's Tokens</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this_week">This Week</option>
+                    <option value="all_time">All Time History</option>
+                </select>
+                <button onclick="window.openPanel('generate-token')" style="background-color: #0ea5e9; color: white; padding: 10px 20px; font-size: 1rem; font-weight: 600; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);">➕ Sell Token</button>
+            </div>
         </div>
         
         <div class="table-card" style="max-width: 100%; margin-top: 0;">
