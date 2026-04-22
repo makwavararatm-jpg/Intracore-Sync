@@ -75,6 +75,11 @@ window.processLogin = function() {
     if (typeof window.renderVoucherTable === 'function') {
         window.renderVoucherTable(); 
     }
+    
+    // NEW: Trigger the Finance Ledger when logging in
+    if (typeof window.renderFinanceTable === 'function') {
+        window.renderFinanceTable(); 
+    }
 
     document.getElementById('login-overlay').style.display = 'none'; 
     document.getElementById('active-user-name').innerText = currentUser; 
@@ -204,20 +209,50 @@ window.saveTransaction = function() {
     }); 
 }
 
-let revenueChartInstance = null; // Holds the chart so we can destroy/redraw it
+// ==========================================
+// THE NEW FINANCE & LEDGER CALCULATOR ENGINE
+// ==========================================
+let revenueChartInstance = null; 
+let rawTransactionData = null;
+let renderFinanceTimeout = null;
 
 onValue(transactionsRef, (snapshot) => { 
-    const tbody = document.getElementById('transactions-list'); const data = snapshot.val(); 
+    rawTransactionData = snapshot.val(); 
     
+    // 1. Maintain the Global "All-Time" Math for the main Dashboard
     globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
     
-    if (!data) { if(tbody) tbody.innerHTML = ''; window.updateProfitCalculator(); return; } 
+    if (rawTransactionData) {
+        Object.values(rawTransactionData).forEach(trans => { 
+            const isIncome = trans.type === 'inflow'; 
+            if (isIncome) {
+                if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
+                else if (trans.category === 'POS') globalPosRevenue += trans.amount;
+                else if (trans.category === 'PC') globalPcRevenue += trans.amount;
+                else globalManualRevenue += trans.amount;
+            } else {
+                totalExpenses += trans.amount; 
+            }
+        });
+    }
     
-    let html = '';
-    let rowCount = 0;
+    window.updateProfitCalculator(); 
+    window.updateRevenueChart();
 
-    // --- CHART DATA PREPARATION ---
-    // Create an object to hold exactly the last 7 days (e.g., {"Apr 18": 0, "Apr 19": 0...})
+    // 2. Debounce and Render the Finance Tab Ledger
+    if (currentUser) {
+        clearTimeout(renderFinanceTimeout);
+        renderFinanceTimeout = setTimeout(() => {
+            window.renderFinanceTable();
+        }, 200);
+    }
+});
+
+// Helper Function: Keeps the 7-Day Chart working independently
+window.updateRevenueChart = function() {
+    const ctx = document.getElementById('revenueChart');
+    if (!ctx || !rawTransactionData) return;
+
     let chartDataMap = {};
     let chartLabels = [];
     
@@ -229,78 +264,123 @@ onValue(transactionsRef, (snapshot) => {
         chartLabels.push(dateKey);
     }
 
-    Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
-        const isIncome = trans.type === 'inflow'; 
-        
-        if (isIncome) {
-            if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
-            else if (trans.category === 'POS') globalPosRevenue += trans.amount;
-            else if (trans.category === 'PC') globalPcRevenue += trans.amount;
-            else globalManualRevenue += trans.amount;
-
-            // Add to Chart Data if it happened in the last 7 days
+    Object.values(rawTransactionData).forEach(trans => { 
+        if (trans.type === 'inflow') {
             let transDateKey = new Date(trans.createdAt).toLocaleDateString([], {month: 'short', day: 'numeric'});
             if (chartDataMap[transDateKey] !== undefined) {
                 chartDataMap[transDateKey] += trans.amount;
             }
-
-        } else {
-            totalExpenses += trans.amount; 
-        }
-
-        if (rowCount < 100) {
-            const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
-            const amountColor = isIncome ? '#10b981' : '#ef4444'; 
-            const amountSign = isIncome ? '+' : '-'; 
-            const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
-            const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
-            
-            html += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
-            rowCount++;
-        }
+        } 
     }); 
     
-    if(tbody) tbody.innerHTML = html;
-    window.updateProfitCalculator(); 
+    if (revenueChartInstance) revenueChartInstance.destroy(); 
+    let chartValues = chartLabels.map(label => chartDataMap[label]);
 
-    // --- DRAW THE CHART ---
-    const ctx = document.getElementById('revenueChart');
-    if (ctx) {
-        if (revenueChartInstance) revenueChartInstance.destroy(); // Clear old chart
-        
-        let chartValues = chartLabels.map(label => chartDataMap[label]);
-
-        // Wrap in a safety check in case Chart.js hasn't loaded yet
-        if (typeof Chart !== 'undefined') {
-            revenueChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: 'Daily Revenue ($)',
-                        data: chartValues,
-                        borderColor: '#0ea5e9',
-                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                        borderWidth: 3,
-                        pointBackgroundColor: '#0ea5e9',
-                        pointRadius: 4,
-                        fill: true,
-                        tension: 0.3 // Gives the line a smooth curve
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value; } } },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-        }
+    if (typeof Chart !== 'undefined') {
+        revenueChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: chartLabels, datasets: [{ label: 'Daily Revenue ($)', data: chartValues, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderWidth: 3, pointBackgroundColor: '#0ea5e9', pointRadius: 4, fill: true, tension: 0.3 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value; } } }, x: { grid: { display: false } } } }
+        });
     }
-});
+}
+
+// Master Finance & Ledger Calculator
+window.renderFinanceTable = function() {
+    const tbody = document.getElementById('transactions-list');
+    if(!tbody) return;
+
+    let openingBalance = 0;
+    let periodRevenue = 0;
+    let periodExpenses = 0;
+    let closingBalance = 0;
+
+    if (!rawTransactionData) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No transactions found.</td></tr>';
+        return;
+    }
+
+    let transactionsArray = Object.entries(rawTransactionData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt);
+
+    // 1. Handle "Today" Default Logic
+    let startDateInput = document.getElementById('finance-start-date').value;
+    let endDateInput = document.getElementById('finance-end-date').value;
+
+    if (!startDateInput && !endDateInput) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        
+        document.getElementById('finance-start-date').value = todayStr;
+        document.getElementById('finance-end-date').value = todayStr;
+        
+        startDateInput = todayStr;
+        endDateInput = todayStr;
+    }
+
+    let startMs = 0;
+    let endMs = Infinity;
+
+    if (startDateInput) startMs = new Date(startDateInput + 'T00:00:00').getTime();
+    if (endDateInput) endMs = new Date(endDateInput + 'T23:59:59').getTime();
+
+    let tableHTML = '';
+    let rowCount = 0;
+
+    // 2. Crunch the numbers
+    transactionsArray.forEach(trans => {
+        const isIncome = trans.type === 'inflow';
+        const amt = trans.amount;
+
+        // A. Opening Balance Math (Everything BEFORE start date)
+        if (trans.createdAt < startMs) {
+            if (isIncome) openingBalance += amt;
+            else openingBalance -= amt;
+        }
+        
+        // B. Period Math (Everything DURING start and end date)
+        if (trans.createdAt >= startMs && trans.createdAt <= endMs) {
+            if (isIncome) periodRevenue += amt;
+            else periodExpenses += amt;
+
+            // Build UI string (Cap at 100 rows to prevent browser freezing)
+            if (rowCount < 100) {
+                const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
+                const amountColor = isIncome ? '#10b981' : '#ef4444'; 
+                const amountSign = isIncome ? '+' : '-'; 
+                const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
+                const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
+                
+                tableHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
+                rowCount++;
+            }
+        }
+    });
+
+    if (rowCount === 0) {
+        tableHTML = '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No transactions found for this date range.</td></tr>';
+    }
+
+    // 3. Final Closing Balance Math
+    closingBalance = openingBalance + periodRevenue - periodExpenses;
+
+    // 4. Paint the UI
+    const elFinanceOpening = document.getElementById('finance-opening');
+    if(elFinanceOpening) elFinanceOpening.innerText = (openingBalance >= 0 ? '$' : '-$') + Math.abs(openingBalance).toFixed(2);
+    
+    const elFinanceRev = document.getElementById('finance-revenue');
+    if(elFinanceRev) elFinanceRev.innerText = '$' + periodRevenue.toFixed(2);
+    
+    const elFinanceExp = document.getElementById('finance-expenses');
+    if(elFinanceExp) elFinanceExp.innerText = '$' + periodExpenses.toFixed(2);
+    
+    const elFinanceClose = document.getElementById('finance-closing');
+    if(elFinanceClose) elFinanceClose.innerText = (closingBalance >= 0 ? '$' : '-$') + Math.abs(closingBalance).toFixed(2);
+
+    tbody.innerHTML = tableHTML;
+}
 
 // ==========================================
 // MODULE: MULTI-PC GRID
