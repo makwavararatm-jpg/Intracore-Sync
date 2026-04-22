@@ -162,7 +162,6 @@ onValue(shiftsRef, (snapshot) => {
     const tbody = document.getElementById('shifts-list'); const data = snapshot.val();
     if(!data) { tbody.innerHTML = ''; return; }
     let html = '';
-    // Limit UI to last 30 shifts to prevent lag
     Object.values(data).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
         const startStr = new Date(shift.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const endStr = shift.endTime ? new Date(shift.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Still Active';
         const statusBadge = shift.status === 'active' ? '<span class="badge-active-small">ACTIVE NOW</span>' : '<span class="badge-neutral">Completed</span>';
@@ -196,7 +195,6 @@ onValue(transactionsRef, (snapshot) => {
     let rowCount = 0;
 
     Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
-        // 1. Calculate the math for ALL time history
         const isIncome = trans.type === 'inflow'; 
         if (isIncome) {
             if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
@@ -207,7 +205,6 @@ onValue(transactionsRef, (snapshot) => {
             totalExpenses += trans.amount; 
         }
 
-        // 2. ONLY build UI HTML for the 100 most recent items so the browser doesn't freeze
         if (rowCount < 100) {
             const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
             const amountColor = isIncome ? '#10b981' : '#ef4444'; 
@@ -456,6 +453,8 @@ onValue(liveNetworkRef, (snapshot) => {
         document.getElementById('total-down-speed').innerText = "0.00 Mbps"; 
         document.getElementById('total-up-speed').innerText = "0.00 Mbps"; 
         document.getElementById('network-active-count').innerText = "0";
+        // Force the voucher table to update its badges if someone logs out
+        if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable();
         return; 
     }
 
@@ -485,6 +484,9 @@ onValue(liveNetworkRef, (snapshot) => {
     document.getElementById('total-down-speed').innerText = totalDown.toFixed(2) + " Mbps"; 
     document.getElementById('total-up-speed').innerText = totalUp.toFixed(2) + " Mbps";
     document.getElementById('network-active-count').innerText = deviceArray.length;
+    
+    // Force the voucher table to check for newly connected users
+    if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable();
 });
 
 // ==========================================
@@ -521,15 +523,21 @@ function getExpiryData(createdAt, uptimeStr) {
 }
 
 let rawVoucherData = null;
+let renderVoucherTimeout = null; // NEW: The Debouncer
+window.pendingVoucherUpdates = new Set(); // NEW: The Infinite Loop Killer
 
 onValue(vouchersRef, (snapshot) => { 
     rawVoucherData = snapshot.val(); 
     if (currentUser) {
-        window.renderVoucherTable();
+        // THE BULK PRINT CRASH FIX: Wait a fraction of a second before drawing.
+        // If 50 bulk tokens arrive at once, it only draws the table 1 time instead of 50 times.
+        clearTimeout(renderVoucherTimeout);
+        renderVoucherTimeout = setTimeout(() => {
+            window.renderVoucherTable();
+        }, 200);
     }
 });
 
-// Draws the table when logged in or when date filters change
 window.renderVoucherTable = function() {
     const tbody = document.getElementById('voucher-list'); 
     if(!tbody) return;
@@ -541,14 +549,12 @@ window.renderVoucherTable = function() {
     
     let vouchersArray = Object.entries(rawVoucherData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // 1. Strict Cashier Filter
     if (currentRole !== 'admin') {
         vouchersArray = vouchersArray.filter(v => 
             String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase()
         );
     }
 
-    // 2. Custom Calendar Date Range Filter
     const startDateInput = document.getElementById('wifi-start-date')?.value;
     const endDateInput = document.getElementById('wifi-end-date')?.value;
     let isFiltered = false;
@@ -565,7 +571,7 @@ window.renderVoucherTable = function() {
         isFiltered = true;
     }
 
-    // PERFORMANCE FIX: If they are looking at "All Time", limit to the newest 100 to prevent browser crashing
+    // MEMORY FIX: If not filtering, only display the top 100 so the browser doesn't freeze
     if (!isFiltered) {
         vouchersArray = vouchersArray.slice(0, 100);
     }
@@ -575,7 +581,6 @@ window.renderVoucherTable = function() {
         return;
     }
     
-    // PERFORMANCE FIX 2: Build HTML string silently in memory, do NOT modify the live DOM inside a loop
     let tableHTML = '';
 
     vouchersArray.forEach(v => { 
@@ -589,14 +594,17 @@ window.renderVoucherTable = function() {
 
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        // Security Patch: Burn "used" into database if they connect
-        if (isConnected && v.status === 'active') {
+        // THE INFINITE LOOP FIX: Wait for Firebase to reply before ever checking again
+        if (isConnected && v.status === 'active' && !window.pendingVoucherUpdates.has(v.key)) {
+            window.pendingVoucherUpdates.add(v.key); // Lock this token
             const now = Date.now();
             update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { 
                 status: 'used',
                 startedAt: now
+            }).then(() => {
+                window.pendingVoucherUpdates.delete(v.key); // Unlock token when Firebase confirms
             });
-            v.status = 'used';
+            v.status = 'used'; // Fake the status locally so UI updates instantly
             v.startedAt = now;
         }
 
@@ -639,7 +647,6 @@ window.renderVoucherTable = function() {
             actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
         }
 
-        // Add the row to our invisible string memory
         tableHTML += `
         <tr>
             <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
@@ -652,7 +659,6 @@ window.renderVoucherTable = function() {
         </tr>`; 
     }); 
 
-    // Slap the entire string onto the screen in ONE clean motion
     tbody.innerHTML = tableHTML;
 }
 
