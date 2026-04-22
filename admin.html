@@ -13,13 +13,92 @@
 
     body { font-family: 'Inter', sans-serif; background-color: #f9fafb; margin: 0; display: flex; overflow-x: hidden; color: #111827; font-size: 14px; }
 
-    /* --- LOGIN OVERLAY --- */
-    #login-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f3460; z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; }
-    .login-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; text-align: center; color: #111827; width: 280px; }
-    .login-card h2 { margin-top: 0; font-size: 1.4rem; color: #0f3460; font-weight: 600;}
-    .pin-input { font-size: 1.8rem; letter-spacing: 12px; text-align: center; width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin: 15px 0; font-family: monospace; outline: none; }
-    .btn-login { background: #0ea5e9; color: white; width: 100%; padding: 10px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-    .btn-login:hover { background: #0284c7; }
+    /* --- LOGIN OVERLAY (CINEMATIC FUTURISTIC) --- */
+    #login-overlay { 
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+        background: #000; /* Fallback */
+        z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; 
+        overflow: hidden;
+    }
+
+    /* Background Image Slideshow Engine */
+    .bg-slideshow {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+    }
+    .slide {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background-size: cover; background-position: center;
+        opacity: 0; animation: fade 16s infinite; 
+    }
+    /* Dark Cyber Overlay so the login card stays readable */
+    .bg-slideshow::after {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: radial-gradient(circle at center, rgba(15, 32, 39, 0.75) 0%, rgba(11, 19, 23, 0.85) 40%, rgba(0, 0, 0, 0.95) 100%);
+    }
+
+    /* The 4 Cafe Images (You can swap these URLs to your own later) */
+    .slide-1 { background-image: url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1920&q=80'); animation-delay: 0s; }
+    .slide-2 { background-image: url('https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1920&q=80'); animation-delay: 4s; }
+    .slide-3 { background-image: url('https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1920&q=80'); animation-delay: 8s; }
+    .slide-4 { background-image: url('https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?auto=format&fit=crop&w=1920&q=80'); animation-delay: 12s; }
+
+    @keyframes fade {
+        0% { opacity: 0; transform: scale(1.05); }
+        5% { opacity: 1; }
+        20% { opacity: 1; }
+        25% { opacity: 0; transform: scale(1); }
+        100% { opacity: 0; }
+    }
+
+    /* Subtle Cyber Grid over the images */
+    #login-overlay::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background-image: linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+        background-size: 40px 40px; z-index: 1; pointer-events: none;
+    }
+
+    /* Make sure content sits above the slideshow */
+    .login-content-wrapper { z-index: 2; display: flex; flex-direction: column; align-items: center; }
+
+    .login-card { 
+        background: rgba(15, 23, 42, 0.4); 
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); 
+        padding: 40px 30px; border-radius: 16px; 
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(56, 189, 248, 0.15); 
+        border: 1px solid rgba(255,255,255,0.05); 
+        text-align: center; color: #f8fafc; width: 290px; 
+        position: relative; overflow: hidden;
+    }
+    
+    .login-card::before {
+        content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px;
+        background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        animation: scanline 3s linear infinite;
+    }
+    @keyframes scanline { 0% { left: -100%; } 100% { left: 100%; } }
+
+    .login-card h2 { margin-top: 0; font-size: 1.5rem; color: #f8fafc; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;}
+    
+    .pin-input { 
+        background: rgba(0,0,0,0.3); color: #38bdf8; 
+        font-size: 2rem; letter-spacing: 16px; text-align: center; width: 100%; padding: 12px 10px; 
+        border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; margin: 20px 0; 
+        font-family: monospace; outline: none; transition: all 0.3s ease;
+        text-shadow: 0 0 8px rgba(56, 189, 248, 0.5); 
+    }
+    .pin-input:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), inset 0 0 10px rgba(56, 189, 248, 0.1);
+    }
+    
+    .btn-login { 
+        background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); color: #0f172a; 
+        width: 100%; padding: 14px; font-size: 1rem; border: none; border-radius: 8px; 
+        cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+        transition: all 0.3s; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+    }
+    .btn-login:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6); }
+
 
     /* --- TOP NAVIGATION BAR --- */
     .sidebar { width: 100vw; background: #0f3460; color: white; height: 65px; position: fixed; top: 0; left: 0; display: flex; flex-direction: row; align-items: center; padding: 0 20px; z-index: 100; box-sizing: border-box; }
@@ -184,15 +263,26 @@
 <body>
 
   <div id="login-overlay">
-    <h1 style="margin-bottom: 5px; letter-spacing: 2px;">Blessmas <span style="color: #38bdf8;">Sync</span></h1>
-    <p style="color: #cbd5e1; margin-bottom: 30px;">Authorized Staff Only</p>
-    <div class="login-card">
-        <h2>Clock In</h2>
-        <p style="color: #6b7280; font-size: 0.85rem; margin-top: 0;">Enter your 4-digit assigned PIN</p>
-        <form onsubmit="event.preventDefault(); window.processLogin();">
-            <input type="password" id="login-pin" class="pin-input" maxlength="4" placeholder="••••" required autocomplete="off">
-            <button type="submit" class="btn-login">Unlock POS</button>
-        </form>
+    
+    <div class="bg-slideshow">
+        <div class="slide slide-1"></div>
+        <div class="slide slide-2"></div>
+        <div class="slide slide-3"></div>
+        <div class="slide slide-4"></div>
+    </div>
+
+    <div class="login-content-wrapper">
+        <h1 style="margin-bottom: 5px; letter-spacing: 4px; font-size: 2.2rem; text-shadow: 0 0 15px rgba(56, 189, 248, 0.4);">BLESSMAS <span style="color: #38bdf8;">SYNC</span></h1>
+        <p style="color: #94a3b8; margin-bottom: 35px; letter-spacing: 3px; font-size: 0.8rem; text-transform: uppercase;">Secure Terminal</p>
+        
+        <div class="login-card">
+            <h2>System Access</h2>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Enter your 4-digit clearance PIN</p>
+            <form onsubmit="event.preventDefault(); window.processLogin();">
+                <input type="password" id="login-pin" class="pin-input" maxlength="4" placeholder="••••" required autocomplete="off">
+                <button type="submit" class="btn-login">Initialize</button>
+            </form>
+        </div>
     </div>
   </div>
 
