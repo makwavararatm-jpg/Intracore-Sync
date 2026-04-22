@@ -179,6 +179,8 @@
         .feed-card { grid-column: span 2 !important; height: auto; padding: 15px; }
     }
   </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -261,10 +263,31 @@
       </div>
 
       <div class="dashboard-grid">
-         <div class="metric-card net-profit-card" id="card-profit" style="border-left: 4px solid #10b981;"><div class="metric-title">Net Profit (After Expenses)</div><div class="metric-value" id="dash-profit" style="color: #10b981;">$0.00</div></div>
-         <div class="feed-card" style="grid-column: span 3; height: 300px;">
-            <h3 style="margin-top: 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; color: #111827;">⚡ Live Activity Stream</h3>
-            <ul class="feed-list" id="activity-stream"><li style="color: #9ca3af; text-align: center; padding-top: 20px;">Monitoring network activity...</li></ul>
+         <div class="metric-card net-profit-card" id="card-profit" style="cursor: pointer; border-left: 4px solid #10b981; grid-column: span 1; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="window.switchTab('finances', document.getElementById('nav-finances'))">
+             <div style="font-size: 0.95rem; color: #4b5563; margin-bottom: 15px; font-weight: 600;">Financial Overview</div>
+             
+             <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: 8px; margin-bottom: 8px;">
+                 <span style="color: #6b7280; font-size: 0.9rem;">Gross Revenue:</span>
+                 <span id="dash-breakdown-rev" style="font-weight: 600; color: #111827;">$0.00</span>
+             </div>
+             
+             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 15px;">
+                 <span style="color: #6b7280; font-size: 0.9rem;">Total Expenses:</span>
+                 <span id="dash-breakdown-exp" style="font-weight: 600; color: #ef4444;">$0.00</span>
+             </div>
+             
+             <div style="display: flex; justify-content: space-between; align-items: center;">
+                 <span style="font-weight: 700; color: #111827; font-size: 1.1rem;">Net Profit:</span>
+                 <span id="dash-profit" style="font-size: 1.6rem; font-weight: 800; color: #10b981;">$0.00</span>
+             </div>
+             <div style="text-align: center; margin-top: 15px; font-size: 0.75rem; color: #0ea5e9; font-weight: 600;">Click to view full ledger 👉</div>
+         </div>
+
+         <div class="feed-card" style="grid-column: span 3; height: 300px; padding: 15px 20px;">
+            <h3 style="margin-top: 0; color: #111827; font-size: 1.1rem; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">📈 7-Day Revenue Trend</h3>
+            <div style="position: relative; height: 220px; width: 100%;">
+                <canvas id="revenueChart"></canvas>
+            </div>
          </div>
       </div>
     </div>
