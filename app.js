@@ -306,7 +306,9 @@ window.renderFinanceTable = function() {
     let startDateInput = document.getElementById('finance-start-date').value;
     let endDateInput = document.getElementById('finance-end-date').value;
 
-    if (!startDateInput && !endDateInput) {
+    // We use a safety flag so it only forces "Today" on the very first load.
+    // If you click the 'X' to clear dates later, it stays empty so you can see "All Time".
+    if (!startDateInput && !endDateInput && !window.financeInitialized) {
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -318,6 +320,7 @@ window.renderFinanceTable = function() {
         
         startDateInput = todayStr;
         endDateInput = todayStr;
+        window.financeInitialized = true; 
     }
 
     let startMs = 0;
