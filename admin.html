@@ -159,10 +159,6 @@
         .metric-title { font-size: 0.75rem; white-space: nowrap; }
         .metric-value { font-size: 1.1rem; }
         
-        .net-profit-card { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; width: 100%; box-sizing: border-box; }
-        .net-profit-card .metric-title { margin: 0; font-size: 0.9rem; }
-        .net-profit-card .metric-value { margin: 0; font-size: 1.4rem; font-weight: bold; }
-        
         .header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
         .header h1 { font-size: 1.3rem; margin-top: 5px; }
         .user-profile { width: 100%; justify-content: space-between; box-sizing: border-box; }
@@ -177,6 +173,9 @@
         .table-card { overflow-x: auto; padding: 15px; width: 100%; box-sizing: border-box;}
         .voucher-table { min-width: 500px; } 
         .feed-card { grid-column: span 2 !important; height: auto; padding: 15px; }
+
+        /* Mobile specific styling for the profit card to ensure it spans correctly */
+        #card-profit { grid-column: span 2 !important; }
     }
   </style>
 
@@ -263,7 +262,6 @@
       </div>
 
       <div class="dashboard-grid">
-         <div class="dashboard-grid">
          <div class="metric-card" id="card-profit" style="cursor: pointer; border: none; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); grid-column: span 1; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); display: flex; flex-direction: column; justify-content: space-between;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 15px -3px rgba(0, 0, 0, 0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px -1px rgba(0, 0, 0, 0.1)';" onclick="window.switchTab('finances', document.getElementById('nav-finances'))">
              
              <div style="font-size: 1rem; color: #16a34a; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
@@ -299,6 +297,8 @@
             </div>
          </div>
       </div>
+    </div>
+
     <div id="sec-pc" class="app-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">💻 PC Station Control</h2>
