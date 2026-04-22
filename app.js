@@ -148,12 +148,32 @@ const transactionsRef = ref(db, 'cafes/blessmas/transactions');
 window.updateProfitCalculator = function() {
     const totalRevenue = globalPosRevenue + globalWifiRevenue + globalPcRevenue + globalManualRevenue; 
     const profit = totalRevenue - totalExpenses;
-    document.getElementById('dash-total-rev').innerText = '$' + totalRevenue.toFixed(2);
-    document.getElementById('dash-wifi-rev').innerText = '$' + globalWifiRevenue.toFixed(2);
-    document.getElementById('dash-pos-rev').innerText = '$' + globalPosRevenue.toFixed(2);
-    document.getElementById('dash-pc-rev').innerText = '$' + globalPcRevenue.toFixed(2);
-    document.getElementById('dash-profit').innerText = '$' + profit.toFixed(2); 
-    document.getElementById('dash-profit').style.color = profit >= 0 ? '#10b981' : '#ef4444';
+    
+    // Top Row KPIs
+    const elDashTotalRev = document.getElementById('dash-total-rev');
+    if(elDashTotalRev) elDashTotalRev.innerText = '$' + totalRevenue.toFixed(2);
+    
+    const elDashWifiRev = document.getElementById('dash-wifi-rev');
+    if(elDashWifiRev) elDashWifiRev.innerText = '$' + globalWifiRevenue.toFixed(2);
+    
+    const elDashPosRev = document.getElementById('dash-pos-rev');
+    if(elDashPosRev) elDashPosRev.innerText = '$' + globalPosRevenue.toFixed(2);
+    
+    const elDashPcRev = document.getElementById('dash-pc-rev');
+    if(elDashPcRev) elDashPcRev.innerText = '$' + globalPcRevenue.toFixed(2);
+    
+    // Expanded Profit Breakdown Card
+    const elDashBreakdownRev = document.getElementById('dash-breakdown-rev');
+    if(elDashBreakdownRev) elDashBreakdownRev.innerText = '$' + totalRevenue.toFixed(2);
+    
+    const elDashBreakdownExp = document.getElementById('dash-breakdown-exp');
+    if(elDashBreakdownExp) elDashBreakdownExp.innerText = '-$' + totalExpenses.toFixed(2);
+    
+    const elDashProfit = document.getElementById('dash-profit');
+    if(elDashProfit) {
+        elDashProfit.innerText = '$' + profit.toFixed(2); 
+        elDashProfit.style.color = profit >= 0 ? '#10b981' : '#ef4444';
+    }
 }
 
 window.updateShiftSalesUI = function() { document.getElementById('current-shift-sales').innerText = '$' + currentShiftSales.toFixed(2); if(currentShiftId) { update(ref(db, 'cafes/blessmas/shifts/' + currentShiftId), { totalSales: currentShiftSales }); } }
@@ -184,23 +204,46 @@ window.saveTransaction = function() {
     }); 
 }
 
+let revenueChartInstance = null; // Holds the chart so we can destroy/redraw it
+
 onValue(transactionsRef, (snapshot) => { 
     const tbody = document.getElementById('transactions-list'); const data = snapshot.val(); 
     
     globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
     
-    if (!data) { tbody.innerHTML = ''; window.updateProfitCalculator(); return; } 
+    if (!data) { if(tbody) tbody.innerHTML = ''; window.updateProfitCalculator(); return; } 
     
     let html = '';
     let rowCount = 0;
 
+    // --- CHART DATA PREPARATION ---
+    // Create an object to hold exactly the last 7 days (e.g., {"Apr 18": 0, "Apr 19": 0...})
+    let chartDataMap = {};
+    let chartLabels = [];
+    
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date();
+        d.setDate(d.getDate() - i);
+        let dateKey = d.toLocaleDateString([], {month: 'short', day: 'numeric'});
+        chartDataMap[dateKey] = 0;
+        chartLabels.push(dateKey);
+    }
+
     Object.values(data).sort((a, b) => b.createdAt - a.createdAt).forEach(trans => { 
         const isIncome = trans.type === 'inflow'; 
+        
         if (isIncome) {
             if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
             else if (trans.category === 'POS') globalPosRevenue += trans.amount;
             else if (trans.category === 'PC') globalPcRevenue += trans.amount;
             else globalManualRevenue += trans.amount;
+
+            // Add to Chart Data if it happened in the last 7 days
+            let transDateKey = new Date(trans.createdAt).toLocaleDateString([], {month: 'short', day: 'numeric'});
+            if (chartDataMap[transDateKey] !== undefined) {
+                chartDataMap[transDateKey] += trans.amount;
+            }
+
         } else {
             totalExpenses += trans.amount; 
         }
@@ -217,8 +260,46 @@ onValue(transactionsRef, (snapshot) => {
         }
     }); 
     
-    tbody.innerHTML = html;
+    if(tbody) tbody.innerHTML = html;
     window.updateProfitCalculator(); 
+
+    // --- DRAW THE CHART ---
+    const ctx = document.getElementById('revenueChart');
+    if (ctx) {
+        if (revenueChartInstance) revenueChartInstance.destroy(); // Clear old chart
+        
+        let chartValues = chartLabels.map(label => chartDataMap[label]);
+
+        // Wrap in a safety check in case Chart.js hasn't loaded yet
+        if (typeof Chart !== 'undefined') {
+            revenueChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Daily Revenue ($)',
+                        data: chartValues,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#0ea5e9',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3 // Gives the line a smooth curve
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value; } } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    }
 });
 
 // ==========================================
