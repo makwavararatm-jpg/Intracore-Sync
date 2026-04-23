@@ -35,7 +35,6 @@ window.applyRoleBasedUI = function(role) {
     document.getElementById('admin-revenue-row').style.display = displayGridStyle;
     document.getElementById('card-profit').style.display = displayStyle;
 
-    // Only Admin can filter between branches. Cashiers only see their assigned branch.
     document.getElementById('branch-filter').style.display = role === 'admin' ? 'inline-block' : 'none';
 
     document.querySelector('.nav-item').click(); 
@@ -65,12 +64,8 @@ window.processLogin = function() {
 
         push(securityLogRef, { event: 'Failed Login Attempt', timestamp: Date.now() });
 
-        if (failedAttempts >= MAX_ATTEMPTS) {
-            window.triggerSecurityLockout();
-        } else {
-            const remaining = MAX_ATTEMPTS - failedAttempts;
-            alert(`❌ Invalid PIN Code. Warning: ${remaining} attempts remaining before system lockout.`);
-        }
+        if (failedAttempts >= MAX_ATTEMPTS) { window.triggerSecurityLockout(); } 
+        else { const remaining = MAX_ATTEMPTS - failedAttempts; alert(`❌ Invalid PIN Code. Warning: ${remaining} attempts remaining before system lockout.`); }
         return; 
     }
 
@@ -85,6 +80,7 @@ window.processLogin = function() {
 
     if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); 
     if (typeof window.renderFinanceTable === 'function') window.renderFinanceTable(); 
+    if (typeof window.renderShiftsTable === 'function') window.renderShiftsTable();
     if (rawTransactionData) window.processTransactionsEngine();
 
     document.getElementById('login-overlay').style.display = 'none'; 
@@ -99,22 +95,15 @@ window.triggerSecurityLockout = function() {
     const input = document.getElementById('login-pin');
     let secondsLeft = 30;
 
-    input.disabled = true;
-    btn.disabled = true;
-    btn.style.background = '#9ca3af'; 
-    
+    input.disabled = true; btn.disabled = true; btn.style.background = '#9ca3af'; 
     push(securityLogRef, { event: 'System Locked - Brute Force Attempt', timestamp: Date.now() });
 
     lockoutTimer = setInterval(() => {
         btn.innerText = `System Locked (${secondsLeft}s)`;
         secondsLeft--;
         if (secondsLeft < 0) {
-            clearInterval(lockoutTimer);
-            failedAttempts = 0;
-            input.disabled = false;
-            btn.disabled = false;
-            btn.style.background = '#0ea5e9'; 
-            btn.innerText = 'Initialize';
+            clearInterval(lockoutTimer); failedAttempts = 0; input.disabled = false; btn.disabled = false;
+            btn.style.background = '#0ea5e9'; btn.innerText = 'Initialize';
         }
     }, 1000);
 }
@@ -126,20 +115,14 @@ window.clockOut = function() {
 }
 
 // ==========================================
-// NEW MODULE: DYNAMIC BRANCH MANAGEMENT
+// DYNAMIC BRANCH MANAGEMENT
 // ==========================================
 const branchesRef = ref(db, 'cafes/blessmas/settings/branches');
 
 window.saveBranch = function() {
     const name = document.getElementById('branch-name').value.trim();
     const id = 'branch_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    
-    update(ref(db, 'cafes/blessmas/settings/branches/' + id), {
-        name: name, createdAt: Date.now()
-    }).then(() => {
-        window.closeAllPanels();
-        alert(`✅ Branch "${name}" added successfully!`);
-    });
+    update(ref(db, 'cafes/blessmas/settings/branches/' + id), { name: name, createdAt: Date.now() }).then(() => { window.closeAllPanels(); });
 }
 
 window.deleteBranch = function(id, name) {
@@ -155,8 +138,7 @@ onValue(branchesRef, (snapshot) => {
     const tbody = document.getElementById('branches-list');
 
     let filterHtml = '<option value="all" selected>🏢 All Branches (Global)</option>';
-    let staffHtml = '';
-    let tableHtml = '';
+    let staffHtml = ''; let tableHtml = '';
 
     if (!data) {
         staffHtml = '<option value="branch_main">📍 Main Branch (Default)</option>';
@@ -196,18 +178,12 @@ onValue(staffRef, (snapshot) => {
 });
 
 window.saveStaff = function() {
-    const name = document.getElementById('staff-name').value; 
-    const pin = document.getElementById('staff-pin').value; 
-    const role = document.getElementById('staff-role').value;
-    const branch = document.getElementById('staff-branch').value;
-
+    const name = document.getElementById('staff-name').value; const pin = document.getElementById('staff-pin').value; const role = document.getElementById('staff-role').value; const branch = document.getElementById('staff-branch').value;
     for (let key in globalStaffData) { if (globalStaffData[key].pin === pin) { alert("❌ This PIN is already taken."); return; } }
     push(staffRef, { name: name, pin: pin, role: role, branch: branch, createdAt: Date.now() }).then(() => { window.closeAllPanels(); alert(`✅ Staff member ${name} created successfully!`); });
 }
 
-window.deleteStaff = function(id, name) { 
-    if(confirm(`Delete staff account "${name}"?`)) { remove(ref(db, 'cafes/blessmas/staff/' + id)); } 
-}
+window.deleteStaff = function(id, name) { if(confirm(`Delete staff account "${name}"?`)) { remove(ref(db, 'cafes/blessmas/staff/' + id)); } }
 
 // ==========================================
 // SEGMENTED REVENUE & BRANCH FILTER ENGINE
@@ -216,99 +192,90 @@ let globalPosRevenue = 0; let globalWifiRevenue = 0; let globalPcRevenue = 0; le
 let posCart = []; let cartTotal = 0;
 const transactionsRef = ref(db, 'cafes/blessmas/transactions');
 
-// Triggered by Dashboard Dropdown
+// NEW: The Master Trigger for all tables to update when a branch is changed
 window.changeBranch = function(branchValue) {
     dashboardBranchFilter = branchValue;
     if (rawTransactionData) window.processTransactionsEngine();
     if (typeof window.renderFinanceTable === 'function') window.renderFinanceTable(); 
     if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); 
+    if (typeof window.renderShiftsTable === 'function') window.renderShiftsTable(); 
 }
 
 window.updateProfitCalculator = function() {
     const totalRevenue = globalPosRevenue + globalWifiRevenue + globalPcRevenue + globalManualRevenue; 
     const profit = totalRevenue - totalExpenses;
     
-    const elDashTotalRev = document.getElementById('dash-total-rev');
-    if(elDashTotalRev) elDashTotalRev.innerText = '$' + totalRevenue.toFixed(2);
-    const elDashWifiRev = document.getElementById('dash-wifi-rev');
-    if(elDashWifiRev) elDashWifiRev.innerText = '$' + globalWifiRevenue.toFixed(2);
-    const elDashPosRev = document.getElementById('dash-pos-rev');
-    if(elDashPosRev) elDashPosRev.innerText = '$' + globalPosRevenue.toFixed(2);
-    const elDashPcRev = document.getElementById('dash-pc-rev');
-    if(elDashPcRev) elDashPcRev.innerText = '$' + globalPcRevenue.toFixed(2);
-    
-    const elDashBreakdownRev = document.getElementById('dash-breakdown-rev');
-    if(elDashBreakdownRev) elDashBreakdownRev.innerText = '$' + totalRevenue.toFixed(2);
-    const elDashBreakdownExp = document.getElementById('dash-breakdown-exp');
-    if(elDashBreakdownExp) elDashBreakdownExp.innerText = '-$' + totalExpenses.toFixed(2);
+    const elDashTotalRev = document.getElementById('dash-total-rev'); if(elDashTotalRev) elDashTotalRev.innerText = '$' + totalRevenue.toFixed(2);
+    const elDashWifiRev = document.getElementById('dash-wifi-rev'); if(elDashWifiRev) elDashWifiRev.innerText = '$' + globalWifiRevenue.toFixed(2);
+    const elDashPosRev = document.getElementById('dash-pos-rev'); if(elDashPosRev) elDashPosRev.innerText = '$' + globalPosRevenue.toFixed(2);
+    const elDashPcRev = document.getElementById('dash-pc-rev'); if(elDashPcRev) elDashPcRev.innerText = '$' + globalPcRevenue.toFixed(2);
+    const elDashBreakdownRev = document.getElementById('dash-breakdown-rev'); if(elDashBreakdownRev) elDashBreakdownRev.innerText = '$' + totalRevenue.toFixed(2);
+    const elDashBreakdownExp = document.getElementById('dash-breakdown-exp'); if(elDashBreakdownExp) elDashBreakdownExp.innerText = '-$' + totalExpenses.toFixed(2);
     const elDashProfit = document.getElementById('dash-profit');
-    if(elDashProfit) {
-        elDashProfit.innerText = '$' + profit.toFixed(2); 
-        elDashProfit.style.color = profit >= 0 ? '#10b981' : '#ef4444';
-    }
+    if(elDashProfit) { elDashProfit.innerText = '$' + profit.toFixed(2); elDashProfit.style.color = profit >= 0 ? '#10b981' : '#ef4444'; }
 }
 
 window.updateShiftSalesUI = function() { document.getElementById('current-shift-sales').innerText = '$' + currentShiftSales.toFixed(2); if(currentShiftId) { update(ref(db, 'cafes/blessmas/shifts/' + currentShiftId), { totalSales: currentShiftSales }); } }
 
+let rawShiftData = null;
+
 onValue(shiftsRef, (snapshot) => {
-    const tbody = document.getElementById('shifts-list'); const data = snapshot.val();
-    if(!data) { tbody.innerHTML = ''; return; }
+    rawShiftData = snapshot.val();
+    if (currentUser) { window.renderShiftsTable(); }
+});
+
+// NEW: Shifts table updated to react to Admin Branch changes
+window.renderShiftsTable = function() {
+    const tbody = document.getElementById('shifts-list');
+    if(!tbody) return;
+    if(!rawShiftData) { tbody.innerHTML = ''; return; }
+
     let html = '';
-    Object.values(data).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
-        if (currentRole !== 'admin' && shift.branch !== currentBranch) return;
+    Object.values(rawShiftData).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
+        // Fallback for old data without a branch
+        const safeBranch = shift.branch || 'branch_main';
+
+        // Filters
+        if (currentRole === 'admin' && dashboardBranchFilter !== 'all') {
+            if (safeBranch !== dashboardBranchFilter) return;
+        }
+        if (currentRole !== 'admin' && safeBranch !== currentBranch) return;
 
         const startStr = new Date(shift.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const endStr = shift.endTime ? new Date(shift.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Still Active';
         const statusBadge = shift.status === 'active' ? '<span class="badge-active-small">ACTIVE NOW</span>' : '<span class="badge-neutral">Completed</span>';
-        html += `<tr><td style="font-weight: 600; color: #111827;">${shift.cashierName}</td><td>${startStr}</td><td>${endStr}</td><td style="color: #10b981; font-weight: 600;">$${shift.totalSales.toFixed(2)}</td><td>${statusBadge}</td></tr>`;
+        
+        let branchTag = dashboardBranchFilter === 'all' ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px; margin-left:5px;">${safeBranch.replace('branch_', '').toUpperCase()}</span>` : '';
+
+        html += `<tr><td style="font-weight: 600; color: #111827;">${shift.cashierName} ${branchTag}</td><td>${startStr}</td><td>${endStr}</td><td style="color: #10b981; font-weight: 600;">$${shift.totalSales.toFixed(2)}</td><td>${statusBadge}</td></tr>`;
     });
     tbody.innerHTML = html;
-});
-
-window.saveTransaction = function() { 
-    const type = document.getElementById('trans-type').value; 
-    const desc = document.getElementById('trans-desc').value; 
-    const amount = parseFloat(document.getElementById('trans-amount').value); 
-    const category = document.getElementById('trans-category').value; 
-    const finalCategory = type === 'inflow' ? 'Manual Income' : category;
-
-    push(transactionsRef, { 
-        type: type, description: desc, amount: amount, category: finalCategory, 
-        cashier: currentUser, branch: currentBranch, createdAt: Date.now() 
-    }).then(() => { window.closeAllPanels(); }); 
 }
 
-// ==========================================
-// THE NEW FINANCE & LEDGER CALCULATOR ENGINE
-// ==========================================
-let revenueChartInstance = null; 
-let rawTransactionData = null;
-let renderFinanceTimeout = null;
+window.saveTransaction = function() { 
+    const type = document.getElementById('trans-type').value; const desc = document.getElementById('trans-desc').value; const amount = parseFloat(document.getElementById('trans-amount').value); const category = document.getElementById('trans-category').value; const finalCategory = type === 'inflow' ? 'Manual Income' : category;
+    push(transactionsRef, { type: type, description: desc, amount: amount, category: finalCategory, cashier: currentUser, branch: currentBranch, createdAt: Date.now() }).then(() => { window.closeAllPanels(); }); 
+}
+
+let revenueChartInstance = null; let rawTransactionData = null; let renderFinanceTimeout = null;
 
 onValue(transactionsRef, (snapshot) => { 
     rawTransactionData = snapshot.val(); 
     window.processTransactionsEngine();
-
-    if (currentUser) {
-        clearTimeout(renderFinanceTimeout);
-        renderFinanceTimeout = setTimeout(() => { window.renderFinanceTable(); }, 200);
-    }
+    if (currentUser) { clearTimeout(renderFinanceTimeout); renderFinanceTimeout = setTimeout(() => { window.renderFinanceTable(); }, 200); }
 });
 
 window.processTransactionsEngine = function() {
     globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
-    
-    let chartDataMap = {};
-    let chartLabels = [];
-    for (let i = 6; i >= 0; i--) {
-        let d = new Date(); d.setDate(d.getDate() - i);
-        let dateKey = d.toLocaleDateString([], {month: 'short', day: 'numeric'});
-        chartDataMap[dateKey] = 0; chartLabels.push(dateKey);
-    }
+    let chartDataMap = {}; let chartLabels = [];
+    for (let i = 6; i >= 0; i--) { let d = new Date(); d.setDate(d.getDate() - i); let dateKey = d.toLocaleDateString([], {month: 'short', day: 'numeric'}); chartDataMap[dateKey] = 0; chartLabels.push(dateKey); }
 
     if (rawTransactionData) {
         Object.values(rawTransactionData).forEach(trans => { 
+            // FIXED: Fallback logic for old transactions
+            const safeBranch = trans.branch || 'branch_main';
+
             if (dashboardBranchFilter !== 'all') {
-                if (trans.branch && trans.branch !== dashboardBranchFilter) return;
+                if (safeBranch !== dashboardBranchFilter) return;
             }
 
             const isIncome = trans.type === 'inflow'; 
@@ -354,22 +321,20 @@ window.renderFinanceTable = function() {
 
     let transactionsArray = Object.entries(rawTransactionData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt);
 
+    // FIXED: Ledger logic with safeBranch fallback
     if (dashboardBranchFilter !== 'all') {
-        transactionsArray = transactionsArray.filter(t => t.branch === dashboardBranchFilter);
+        transactionsArray = transactionsArray.filter(t => {
+            const safeBranch = t.branch || 'branch_main';
+            return safeBranch === dashboardBranchFilter;
+        });
     }
 
     let startDateInput = document.getElementById('finance-start-date').value;
     let endDateInput = document.getElementById('finance-end-date').value;
 
     if (!startDateInput && !endDateInput && !window.financeInitialized) {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-        
-        document.getElementById('finance-start-date').value = todayStr;
-        document.getElementById('finance-end-date').value = todayStr;
+        const today = new Date(); const yyyy = today.getFullYear(); const mm = String(today.getMonth() + 1).padStart(2, '0'); const dd = String(today.getDate()).padStart(2, '0'); const todayStr = `${yyyy}-${mm}-${dd}`;
+        document.getElementById('finance-start-date').value = todayStr; document.getElementById('finance-end-date').value = todayStr;
         startDateInput = todayStr; endDateInput = todayStr; window.financeInitialized = true; 
     }
 
@@ -380,8 +345,7 @@ window.renderFinanceTable = function() {
     let tableHTML = ''; let rowCount = 0;
 
     transactionsArray.forEach(trans => {
-        const isIncome = trans.type === 'inflow';
-        const amt = trans.amount;
+        const isIncome = trans.type === 'inflow'; const amt = trans.amount;
 
         if (trans.createdAt < startMs) {
             if (isIncome) openingBalance += amt; else openingBalance -= amt;
@@ -396,7 +360,8 @@ window.renderFinanceTable = function() {
                 const amountSign = isIncome ? '+' : '-'; 
                 const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
                 
-                let branchTag = dashboardBranchFilter === 'all' && trans.branch ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px; margin-left:5px;">${trans.branch.replace('branch_', '').toUpperCase()}</span>` : '';
+                const safeBranch = trans.branch || 'branch_main';
+                let branchTag = dashboardBranchFilter === 'all' ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px; margin-left:5px;">${safeBranch.replace('branch_', '').toUpperCase()}</span>` : '';
                 const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span> ${branchTag}` : trans.description;
                 
                 tableHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
@@ -409,14 +374,10 @@ window.renderFinanceTable = function() {
 
     closingBalance = openingBalance + periodRevenue - periodExpenses;
 
-    const elFinanceOpening = document.getElementById('finance-opening');
-    if(elFinanceOpening) elFinanceOpening.innerText = (openingBalance >= 0 ? '$' : '-$') + Math.abs(openingBalance).toFixed(2);
-    const elFinanceRev = document.getElementById('finance-revenue');
-    if(elFinanceRev) elFinanceRev.innerText = '$' + periodRevenue.toFixed(2);
-    const elFinanceExp = document.getElementById('finance-expenses');
-    if(elFinanceExp) elFinanceExp.innerText = '$' + periodExpenses.toFixed(2);
-    const elFinanceClose = document.getElementById('finance-closing');
-    if(elFinanceClose) elFinanceClose.innerText = (closingBalance >= 0 ? '$' : '-$') + Math.abs(closingBalance).toFixed(2);
+    const elFinanceOpening = document.getElementById('finance-opening'); if(elFinanceOpening) elFinanceOpening.innerText = (openingBalance >= 0 ? '$' : '-$') + Math.abs(openingBalance).toFixed(2);
+    const elFinanceRev = document.getElementById('finance-revenue'); if(elFinanceRev) elFinanceRev.innerText = '$' + periodRevenue.toFixed(2);
+    const elFinanceExp = document.getElementById('finance-expenses'); if(elFinanceExp) elFinanceExp.innerText = '$' + periodExpenses.toFixed(2);
+    const elFinanceClose = document.getElementById('finance-closing'); if(elFinanceClose) elFinanceClose.innerText = (closingBalance >= 0 ? '$' : '-$') + Math.abs(closingBalance).toFixed(2);
 
     tbody.innerHTML = tableHTML;
 }
@@ -424,41 +385,24 @@ window.renderFinanceTable = function() {
 // ==========================================
 // MODULE: MULTI-PC GRID
 // ==========================================
-const pcsRef = ref(db, 'cafes/blessmas/machines');
-let pcIntervals = {}; 
-
-window.deployNewPC = function() {
-    const pcNumber = prompt("Enter PC Designation (e.g., PC_02, VIP_PC):");
-    if(!pcNumber) return;
-    set(ref(db, 'cafes/blessmas/machines/' + pcNumber), { status: 'free', endTime: 0 });
-}
-
+const pcsRef = ref(db, 'cafes/blessmas/machines'); let pcIntervals = {}; 
+window.deployNewPC = function() { const pcNumber = prompt("Enter PC Designation (e.g., PC_02, VIP_PC):"); if(!pcNumber) return; set(ref(db, 'cafes/blessmas/machines/' + pcNumber), { status: 'free', endTime: 0 }); }
 window.addPCTimer = function(pcId, minutes, priceStr) {
     const price = parseFloat(priceStr || 0); const msToAdd = minutes * 60 * 1000;
     update(ref(db, 'cafes/blessmas/machines/' + pcId), { status: 'active', endTime: Date.now() + msToAdd });
-    
-    if(price > 0) { 
-        currentShiftSales += price; 
-        window.updateShiftSalesUI(); 
-        push(transactionsRef, { type: 'inflow', description: `PC Rental: ${pcId.replace('_', ' ')} for ${minutes} mins`, amount: price, category: 'PC', cashier: currentUser, branch: currentBranch, createdAt: Date.now() });
-    }
+    if(price > 0) { currentShiftSales += price; window.updateShiftSalesUI(); push(transactionsRef, { type: 'inflow', description: `PC Rental: ${pcId.replace('_', ' ')} for ${minutes} mins`, amount: price, category: 'PC', cashier: currentUser, branch: currentBranch, createdAt: Date.now() }); }
 }
-
 window.lockPC = function(pcId) { update(ref(db, 'cafes/blessmas/machines/' + pcId), { status: 'free', endTime: 0 }); }
-
 onValue(pcsRef, (snapshot) => {
     const grid = document.getElementById('multi-pc-grid'); const data = snapshot.val();
     if(!data) { grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #9ca3af;">No workstations deployed. Click Add Workstation.</div>'; return; }
     Object.values(pcIntervals).forEach(clearInterval); pcIntervals = {}; let html = '';
-
     Object.entries(data).forEach(([pcId, pcData]) => {
         const isFree = pcData.status !== 'active'; const nodeClass = isFree ? 'free' : 'active'; const statusClass = isFree ? 'status-free' : 'status-active'; const statusText = isFree ? 'FREE / LOCKED' : 'ACTIVE';
         html += `<div class="pc-node ${nodeClass}"><div class="pc-node-title">${pcId.replace('_', ' ')}</div><div class="pc-node-status ${statusClass}">${statusText}</div><div class="pc-node-time" id="timer-${pcId}">${isFree ? '--:--' : 'Calculating...'}</div><div class="pc-controls"><button onclick="addPCTimer('${pcId}', 15, 0.50)">15m ($0.5)</button><button onclick="addPCTimer('${pcId}', 60, 1.00)">1h ($1)</button>${!isFree ? `<button class="stop" onclick="lockPC('${pcId}')">Force Lock</button>` : ''}</div></div>`;
-
         if(!isFree && pcData.endTime > 0) {
             pcIntervals[pcId] = setInterval(() => {
-                const remaining = pcData.endTime - Date.now();
-                const timerEl = document.getElementById(`timer-${pcId}`);
+                const remaining = pcData.endTime - Date.now(); const timerEl = document.getElementById(`timer-${pcId}`);
                 if(!timerEl) { clearInterval(pcIntervals[pcId]); return; } 
                 if (remaining <= 0) { clearInterval(pcIntervals[pcId]); timerEl.innerText = "EXPIRED"; timerEl.style.color = "#ef4444"; } 
                 else { const mins = Math.floor(remaining / 60000); const secs = Math.floor((remaining % 60000) / 1000); timerEl.innerText = `${mins}:${secs < 10 ? '0'+secs : secs}`; }
@@ -478,7 +422,6 @@ window.switchTab = function(sectionId, element) {
     const titles = { 'dashboard': 'Analytics Dashboard', 'network': 'Live Network Telemetry', 'pc': 'PC Workstation Grid', 'hotspot': 'Wi-Fi Hotspot Management', 'pos': 'Point of Sale (POS)', 'finances': 'Financial Ledger', 'shifts': 'Shift & Audit Reports', 'staff': 'Staff & Access Control', 'settings': 'System Settings' }; document.getElementById('page-title').innerText = titles[sectionId];
     document.querySelector('.sidebar').classList.remove('mobile-open');
 }
-
 window.openPanel = function(panelId) { 
     if(panelId === 'finance') document.getElementById('finance-form').reset(); 
     if(panelId === 'staff') document.getElementById('staff-form').reset(); 
@@ -593,8 +536,15 @@ window.renderVoucherTable = function() {
     if (!rawVoucherData) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No tokens generated yet.</td></tr>'; return; }
     let vouchersArray = Object.entries(rawVoucherData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    if (dashboardBranchFilter !== 'all') vouchersArray = vouchersArray.filter(v => v.branch === dashboardBranchFilter);
-    else if (currentRole !== 'admin') vouchersArray = vouchersArray.filter(v => String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase());
+    // FIXED: Fallback to branch_main for old data
+    if (dashboardBranchFilter !== 'all') {
+        vouchersArray = vouchersArray.filter(v => {
+            const safeBranch = v.branch || 'branch_main';
+            return safeBranch === dashboardBranchFilter;
+        });
+    } else if (currentRole !== 'admin') {
+        vouchersArray = vouchersArray.filter(v => String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase());
+    }
 
     const startDateInput = document.getElementById('wifi-start-date')?.value; const endDateInput = document.getElementById('wifi-end-date')?.value; let isFiltered = false;
     if (startDateInput) { const startMs = new Date(startDateInput + 'T00:00:00').getTime(); vouchersArray = vouchersArray.filter(v => v.createdAt >= startMs); isFiltered = true; }
@@ -606,7 +556,9 @@ window.renderVoucherTable = function() {
     vouchersArray.forEach(v => { 
         const dateStr = new Date(v.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
         const deliveryBadge = v.cashier === 'BULK_SYSTEM' ? `<span class="badge-neutral" style="color: #8b5cf6; border-color: #8b5cf6;">🖨️ Bulk Print</span>` : (v.phone ? `<span class="badge-neutral" style="color: #0ea5e9; border-color: #0ea5e9;">📱 SMS Sent</span>` : `<span class="badge-neutral">📄 Printed</span>`);
-        let branchTag = dashboardBranchFilter === 'all' && v.branch ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${v.branch.replace('branch_', '').toUpperCase()}</span>` : '';
+        
+        const safeBranch = v.branch || 'branch_main';
+        let branchTag = dashboardBranchFilter === 'all' ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${safeBranch.replace('branch_', '').toUpperCase()}</span>` : '';
         const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'} ${branchTag}</div>`;
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
