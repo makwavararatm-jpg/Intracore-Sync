@@ -24,18 +24,25 @@ const staffRef = ref(db, 'cafes/blessmas/staff');
 let globalStaffData = {};
 
 window.applyRoleBasedUI = function(role) {
-    const displayStyle = role === 'admin' ? 'flex' : 'none';
-    const displayGridStyle = role === 'admin' ? 'grid' : 'none';
+    const isAdmin = role === 'admin';
     
-    document.getElementById('nav-finances').style.display = displayStyle;
-    document.getElementById('nav-shifts').style.display = displayStyle;
-    document.getElementById('nav-settings').style.display = displayStyle;
-    document.getElementById('nav-staff').style.display = displayStyle;
+    // STRICT ADMIN ONLY
+    document.getElementById('nav-staff').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('nav-settings').style.display = isAdmin ? 'flex' : 'none';
     
-    document.getElementById('admin-revenue-row').style.display = displayGridStyle;
-    document.getElementById('card-profit').style.display = displayStyle;
+    // OPEN TO ALL STAFF (But locked to their branch by the Math Engine)
+    document.getElementById('nav-finances').style.display = 'flex';
+    document.getElementById('nav-shifts').style.display = 'flex';
+    document.getElementById('admin-revenue-row').style.display = 'grid';
+    document.getElementById('card-profit').style.display = 'flex';
 
-    document.getElementById('branch-filter').style.display = role === 'admin' ? 'inline-block' : 'none';
+    // Lock the Dropdown for Cashiers
+    const branchFilter = document.getElementById('branch-filter');
+    if (branchFilter) {
+        branchFilter.disabled = !isAdmin;
+        branchFilter.style.opacity = isAdmin ? '1' : '0.7'; // Dims it slightly to look locked
+        branchFilter.style.cursor = isAdmin ? 'pointer' : 'not-allowed';
+    }
 
     document.querySelector('.nav-item').click(); 
 }
@@ -75,6 +82,10 @@ window.processLogin = function() {
     currentBranch = foundUser.branch || 'branch_main'; 
     
     dashboardBranchFilter = currentRole === 'admin' ? 'all' : currentBranch;
+
+    // Force the dropdown to visually show the cashier's branch
+    const filterEl = document.getElementById('branch-filter');
+    if (filterEl) filterEl.value = dashboardBranchFilter;
 
     window.applyRoleBasedUI(currentRole);
 
@@ -153,16 +164,15 @@ onValue(branchesRef, (snapshot) => {
         if(tbody) tbody.innerHTML = tableHtml;
     }
 
-    const currentFilterVal = filterEl ? filterEl.value : 'all';
     if (filterEl) {
         filterEl.innerHTML = filterHtml;
-        if(data && data[currentFilterVal]) filterEl.value = currentFilterVal;
-        else filterEl.value = 'all';
+        // Lock the visual value so it matches the permission level
+        filterEl.value = dashboardBranchFilter;
     }
     if (staffBranchEl) staffBranchEl.innerHTML = staffHtml;
 });
 
-// STAFF DIRECTORY (UPDATED FOR BRANCHES)
+// STAFF DIRECTORY
 onValue(staffRef, (snapshot) => {
     globalStaffData = snapshot.val() || {}; const tbody = document.getElementById('staff-list'); 
     let html = ''; 
@@ -192,8 +202,10 @@ let globalPosRevenue = 0; let globalWifiRevenue = 0; let globalPcRevenue = 0; le
 let posCart = []; let cartTotal = 0;
 const transactionsRef = ref(db, 'cafes/blessmas/transactions');
 
-// NEW: The Master Trigger for all tables to update when a branch is changed
 window.changeBranch = function(branchValue) {
+    // Failsafe: Prevent cashiers from hijacking the JS function in console
+    if (currentRole !== 'admin' && branchValue !== currentBranch) return; 
+    
     dashboardBranchFilter = branchValue;
     if (rawTransactionData) window.processTransactionsEngine();
     if (typeof window.renderFinanceTable === 'function') window.renderFinanceTable(); 
@@ -224,7 +236,6 @@ onValue(shiftsRef, (snapshot) => {
     if (currentUser) { window.renderShiftsTable(); }
 });
 
-// NEW: Shifts table updated to react to Admin Branch changes
 window.renderShiftsTable = function() {
     const tbody = document.getElementById('shifts-list');
     if(!tbody) return;
@@ -232,14 +243,11 @@ window.renderShiftsTable = function() {
 
     let html = '';
     Object.values(rawShiftData).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
-        // Fallback for old data without a branch
         const safeBranch = shift.branch || 'branch_main';
 
-        // Filters
-        if (currentRole === 'admin' && dashboardBranchFilter !== 'all') {
+        if (dashboardBranchFilter !== 'all') {
             if (safeBranch !== dashboardBranchFilter) return;
         }
-        if (currentRole !== 'admin' && safeBranch !== currentBranch) return;
 
         const startStr = new Date(shift.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const endStr = shift.endTime ? new Date(shift.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Still Active';
         const statusBadge = shift.status === 'active' ? '<span class="badge-active-small">ACTIVE NOW</span>' : '<span class="badge-neutral">Completed</span>';
@@ -271,7 +279,6 @@ window.processTransactionsEngine = function() {
 
     if (rawTransactionData) {
         Object.values(rawTransactionData).forEach(trans => { 
-            // FIXED: Fallback logic for old transactions
             const safeBranch = trans.branch || 'branch_main';
 
             if (dashboardBranchFilter !== 'all') {
@@ -321,7 +328,6 @@ window.renderFinanceTable = function() {
 
     let transactionsArray = Object.entries(rawTransactionData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt);
 
-    // FIXED: Ledger logic with safeBranch fallback
     if (dashboardBranchFilter !== 'all') {
         transactionsArray = transactionsArray.filter(t => {
             const safeBranch = t.branch || 'branch_main';
@@ -536,14 +542,11 @@ window.renderVoucherTable = function() {
     if (!rawVoucherData) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No tokens generated yet.</td></tr>'; return; }
     let vouchersArray = Object.entries(rawVoucherData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    // FIXED: Fallback to branch_main for old data
     if (dashboardBranchFilter !== 'all') {
         vouchersArray = vouchersArray.filter(v => {
             const safeBranch = v.branch || 'branch_main';
             return safeBranch === dashboardBranchFilter;
         });
-    } else if (currentRole !== 'admin') {
-        vouchersArray = vouchersArray.filter(v => String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase());
     }
 
     const startDateInput = document.getElementById('wifi-start-date')?.value; const endDateInput = document.getElementById('wifi-end-date')?.value; let isFiltered = false;
