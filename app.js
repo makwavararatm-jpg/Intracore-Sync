@@ -13,9 +13,12 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // ==========================================
-// MODULE: AUTHENTICATION & RBAC
+// MODULE: AUTHENTICATION, RBAC & BRANCHING
 // ==========================================
 let currentUser = null; let currentRole = null; let currentShiftId = null; let currentShiftSales = 0; 
+let currentBranch = 'branch_main'; // Default fallback
+let dashboardBranchFilter = 'all'; // Admin viewing filter
+
 const shiftsRef = ref(db, 'cafes/blessmas/shifts');
 const staffRef = ref(db, 'cafes/blessmas/staff');
 let globalStaffData = {};
@@ -31,6 +34,9 @@ window.applyRoleBasedUI = function(role) {
     
     document.getElementById('admin-revenue-row').style.display = displayGridStyle;
     document.getElementById('card-profit').style.display = displayStyle;
+
+    // Only Admin can filter between branches. Cashiers only see their assigned branch.
+    document.getElementById('branch-filter').style.display = role === 'admin' ? 'inline-block' : 'none';
 
     document.querySelector('.nav-item').click(); 
 }
@@ -48,7 +54,7 @@ window.processLogin = function() {
     let foundUser = null;
 
     for (let key in globalStaffData) { if (globalStaffData[key].pin === pin) { foundUser = globalStaffData[key]; break; } }
-    if (!foundUser && pin === '8888') { foundUser = { name: 'Master Admin', role: 'admin' }; }
+    if (!foundUser && pin === '8888') { foundUser = { name: 'Master Admin', role: 'admin', branch: 'all' }; }
     
     if (!foundUser) { 
         failedAttempts++;
@@ -69,24 +75,26 @@ window.processLogin = function() {
     }
 
     failedAttempts = 0;
-    currentUser = foundUser.name; currentRole = foundUser.role;
+    currentUser = foundUser.name; 
+    currentRole = foundUser.role;
+    currentBranch = foundUser.branch || 'branch_main'; // Lock them to their branch
+    
+    // Set what they are allowed to see on the dashboard
+    dashboardBranchFilter = currentRole === 'admin' ? 'all' : currentBranch;
+
     window.applyRoleBasedUI(currentRole);
 
-    if (typeof window.renderVoucherTable === 'function') {
-        window.renderVoucherTable(); 
-    }
-    
-    // NEW: Trigger the Finance Ledger when logging in
-    if (typeof window.renderFinanceTable === 'function') {
-        window.renderFinanceTable(); 
-    }
+    if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); 
+    if (typeof window.renderFinanceTable === 'function') window.renderFinanceTable(); 
+
+    // Re-trigger the math engine with the new branch permissions
+    if (rawTransactionData) window.processTransactionsEngine();
 
     document.getElementById('login-overlay').style.display = 'none'; 
     document.getElementById('active-user-name').innerText = currentUser; 
     document.getElementById('shift-user-display').innerText = currentUser;
     const newShiftRef = push(shiftsRef); currentShiftId = newShiftRef.key; currentShiftSales = 0; window.updateShiftSalesUI();
-    set(newShiftRef, { cashierName: currentUser, startTime: Date.now(), endTime: null, totalSales: 0, status: 'active' }); 
-    window.logActivity('SYSTEM', `🔓 ${currentUser} clocked in as ${currentRole.toUpperCase()}.`);
+    set(newShiftRef, { cashierName: currentUser, branch: currentBranch, startTime: Date.now(), endTime: null, totalSales: 0, status: 'active' }); 
 }
 
 window.triggerSecurityLockout = function() {
@@ -98,7 +106,6 @@ window.triggerSecurityLockout = function() {
     btn.disabled = true;
     btn.style.background = '#9ca3af'; 
     
-    window.logActivity('SYSTEM', `🚨 SYSTEM LOCKED: Multiple failed login attempts.`);
     push(securityLogRef, { event: 'System Locked - Brute Force Attempt', timestamp: Date.now() });
 
     lockoutTimer = setInterval(() => {
@@ -110,7 +117,7 @@ window.triggerSecurityLockout = function() {
             input.disabled = false;
             btn.disabled = false;
             btn.style.background = '#0ea5e9'; 
-            btn.innerText = 'Unlock POS';
+            btn.innerText = 'Initialize';
         }
     }, 1000);
 }
@@ -118,25 +125,31 @@ window.triggerSecurityLockout = function() {
 window.clockOut = function() {
     if(!confirm(`Are you sure you want to clock out?\n\nYou should have exactly $${currentShiftSales.toFixed(2)} in your cash drawer.`)) return;
     update(ref(db, 'cafes/blessmas/shifts/' + currentShiftId), { endTime: Date.now(), totalSales: currentShiftSales, status: 'completed' }); 
-    window.logActivity('SYSTEM', `🔒 ${currentUser} clocked out.`);
     currentUser = null; currentRole = null; currentShiftId = null; currentShiftSales = 0; document.getElementById('login-pin').value = ''; document.getElementById('login-overlay').style.display = 'flex';
 }
 
 onValue(staffRef, (snapshot) => {
     globalStaffData = snapshot.val() || {}; const tbody = document.getElementById('staff-list'); 
     let html = ''; 
-    if(Object.keys(globalStaffData).length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: #9ca3af;">No staff configured yet. Default Admin PIN is 8888.</td></tr>'; return; }
+    if(Object.keys(globalStaffData).length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: #9ca3af;">No staff configured yet. Default Admin PIN is 8888.</td></tr>'; return; }
     Object.entries(globalStaffData).forEach(([key, staff]) => {
-        const safeName = staff.name.replace(/'/g, "\\'"); const roleBadge = staff.role === 'admin' ? '<span class="badge-active-small" style="background:#fef3c7; color:#b45309;">ADMIN</span>' : '<span class="badge-active-small" style="background:#dcfce7; color:#15803d;">CASHIER</span>';
-        html += `<tr><td style="font-weight: 600; color: #111827;">${staff.name}</td><td>${roleBadge}</td><td style="font-family: monospace;">••••</td><td style="text-align: right;"><button class="btn-action" onclick="deleteStaff('${key}', '${safeName}')">🗑️</button></td></tr>`;
+        const safeName = staff.name.replace(/'/g, "\\'"); 
+        const roleBadge = staff.role === 'admin' ? '<span class="badge-active-small" style="background:#fef3c7; color:#b45309;">ADMIN</span>' : '<span class="badge-active-small" style="background:#dcfce7; color:#15803d;">CASHIER</span>';
+        const branchDisplay = staff.branch ? staff.branch.replace('branch_', '').toUpperCase() : 'MAIN';
+        
+        html += `<tr><td style="font-weight: 600; color: #111827;">${staff.name}</td><td>${roleBadge}</td><td style="font-family: monospace;">••••</td><td><span class="badge-neutral">${branchDisplay}</span></td><td style="text-align: right;"><button class="btn-action" onclick="deleteStaff('${key}', '${safeName}')">🗑️</button></td></tr>`;
     });
     tbody.innerHTML = html;
 });
 
 window.saveStaff = function() {
-    const name = document.getElementById('staff-name').value; const pin = document.getElementById('staff-pin').value; const role = document.getElementById('staff-role').value;
+    const name = document.getElementById('staff-name').value; 
+    const pin = document.getElementById('staff-pin').value; 
+    const role = document.getElementById('staff-role').value;
+    const branch = document.getElementById('staff-branch').value;
+
     for (let key in globalStaffData) { if (globalStaffData[key].pin === pin) { alert("❌ This PIN is already taken."); return; } }
-    push(staffRef, { name: name, pin: pin, role: role, createdAt: Date.now() }).then(() => { window.closeAllPanels(); alert(`✅ Staff member ${name} created successfully!`); });
+    push(staffRef, { name: name, pin: pin, role: role, branch: branch, createdAt: Date.now() }).then(() => { window.closeAllPanels(); alert(`✅ Staff member ${name} created successfully!`); });
 }
 
 window.deleteStaff = function(id, name) { 
@@ -144,11 +157,19 @@ window.deleteStaff = function(id, name) {
 }
 
 // ==========================================
-// SEGMENTED REVENUE & FINANCE TRACKER (MASTER LEDGER)
+// SEGMENTED REVENUE & BRANCH FILTER ENGINE
 // ==========================================
 let globalPosRevenue = 0; let globalWifiRevenue = 0; let globalPcRevenue = 0; let globalManualRevenue = 0; let totalExpenses = 0;
 let posCart = []; let cartTotal = 0;
 const transactionsRef = ref(db, 'cafes/blessmas/transactions');
+
+// NEW: Triggered by the Dashboard Dropdown
+window.changeBranch = function(branchValue) {
+    dashboardBranchFilter = branchValue;
+    if (rawTransactionData) window.processTransactionsEngine();
+    if (typeof window.renderFinanceTable === 'function') window.renderFinanceTable(); 
+    if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); 
+}
 
 window.updateProfitCalculator = function() {
     const totalRevenue = globalPosRevenue + globalWifiRevenue + globalPcRevenue + globalManualRevenue; 
@@ -188,6 +209,9 @@ onValue(shiftsRef, (snapshot) => {
     if(!data) { tbody.innerHTML = ''; return; }
     let html = '';
     Object.values(data).sort((a, b) => b.startTime - a.startTime).slice(0, 30).forEach(shift => {
+        // If cashier, only see shifts from your branch. Admin sees all.
+        if (currentRole !== 'admin' && shift.branch !== currentBranch) return;
+
         const startStr = new Date(shift.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); const endStr = shift.endTime ? new Date(shift.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Still Active';
         const statusBadge = shift.status === 'active' ? '<span class="badge-active-small">ACTIVE NOW</span>' : '<span class="badge-neutral">Completed</span>';
         html += `<tr><td style="font-weight: 600; color: #111827;">${shift.cashierName}</td><td>${startStr}</td><td>${endStr}</td><td style="color: #10b981; font-weight: 600;">$${shift.totalSales.toFixed(2)}</td><td>${statusBadge}</td></tr>`;
@@ -203,10 +227,10 @@ window.saveTransaction = function() {
     
     const finalCategory = type === 'inflow' ? 'Manual Income' : category;
 
-    push(transactionsRef, { type: type, description: desc, amount: amount, category: finalCategory, cashier: currentUser, createdAt: Date.now() }).then(() => { 
-        window.logActivity('FINANCE', `Logged ${type === 'inflow' ? 'Income' : 'Expense'} of $${amount.toFixed(2)}`); 
-        window.closeAllPanels(); 
-    }); 
+    push(transactionsRef, { 
+        type: type, description: desc, amount: amount, category: finalCategory, 
+        cashier: currentUser, branch: currentBranch, createdAt: Date.now() 
+    }).then(() => { window.closeAllPanels(); }); 
 }
 
 // ==========================================
@@ -218,41 +242,19 @@ let renderFinanceTimeout = null;
 
 onValue(transactionsRef, (snapshot) => { 
     rawTransactionData = snapshot.val(); 
-    
-    // 1. Maintain the Global "All-Time" Math for the main Dashboard
-    globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
-    
-    if (rawTransactionData) {
-        Object.values(rawTransactionData).forEach(trans => { 
-            const isIncome = trans.type === 'inflow'; 
-            if (isIncome) {
-                if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
-                else if (trans.category === 'POS') globalPosRevenue += trans.amount;
-                else if (trans.category === 'PC') globalPcRevenue += trans.amount;
-                else globalManualRevenue += trans.amount;
-            } else {
-                totalExpenses += trans.amount; 
-            }
-        });
-    }
-    
-    window.updateProfitCalculator(); 
-    window.updateRevenueChart();
+    window.processTransactionsEngine();
 
-    // 2. Debounce and Render the Finance Tab Ledger
+    // Debounce and Render the Finance Tab Ledger
     if (currentUser) {
         clearTimeout(renderFinanceTimeout);
-        renderFinanceTimeout = setTimeout(() => {
-            window.renderFinanceTable();
-        }, 200);
+        renderFinanceTimeout = setTimeout(() => { window.renderFinanceTable(); }, 200);
     }
 });
 
-// Helper Function: Keeps the 7-Day Chart working independently
-window.updateRevenueChart = function() {
-    const ctx = document.getElementById('revenueChart');
-    if (!ctx || !rawTransactionData) return;
-
+// Master Engine that calculates math based on Branch Filters
+window.processTransactionsEngine = function() {
+    globalWifiRevenue = 0; globalPosRevenue = 0; globalPcRevenue = 0; globalManualRevenue = 0; totalExpenses = 0; 
+    
     let chartDataMap = {};
     let chartLabels = [];
     
@@ -264,28 +266,51 @@ window.updateRevenueChart = function() {
         chartLabels.push(dateKey);
     }
 
-    Object.values(rawTransactionData).forEach(trans => { 
-        if (trans.type === 'inflow') {
-            let transDateKey = new Date(trans.createdAt).toLocaleDateString([], {month: 'short', day: 'numeric'});
-            if (chartDataMap[transDateKey] !== undefined) {
-                chartDataMap[transDateKey] += trans.amount;
+    if (rawTransactionData) {
+        Object.values(rawTransactionData).forEach(trans => { 
+            // 1. FILTER: Ignore transactions from other branches if a specific branch is selected
+            if (dashboardBranchFilter !== 'all') {
+                if (trans.branch && trans.branch !== dashboardBranchFilter) return;
             }
-        } 
-    }); 
-    
-    if (revenueChartInstance) revenueChartInstance.destroy(); 
-    let chartValues = chartLabels.map(label => chartDataMap[label]);
 
-    if (typeof Chart !== 'undefined') {
-        revenueChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: { labels: chartLabels, datasets: [{ label: 'Daily Revenue ($)', data: chartValues, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderWidth: 3, pointBackgroundColor: '#0ea5e9', pointRadius: 4, fill: true, tension: 0.3 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value; } } }, x: { grid: { display: false } } } }
+            // 2. MATH
+            const isIncome = trans.type === 'inflow'; 
+            if (isIncome) {
+                if (trans.category === 'Wi-Fi') globalWifiRevenue += trans.amount;
+                else if (trans.category === 'POS') globalPosRevenue += trans.amount;
+                else if (trans.category === 'PC') globalPcRevenue += trans.amount;
+                else globalManualRevenue += trans.amount;
+
+                // Chart Math
+                let transDateKey = new Date(trans.createdAt).toLocaleDateString([], {month: 'short', day: 'numeric'});
+                if (chartDataMap[transDateKey] !== undefined) {
+                    chartDataMap[transDateKey] += trans.amount;
+                }
+            } else {
+                totalExpenses += trans.amount; 
+            }
         });
+    }
+    
+    window.updateProfitCalculator(); 
+
+    // REDRAW CHART
+    const ctx = document.getElementById('revenueChart');
+    if (ctx) {
+        if (revenueChartInstance) revenueChartInstance.destroy(); 
+        let chartValues = chartLabels.map(label => chartDataMap[label]);
+
+        if (typeof Chart !== 'undefined') {
+            revenueChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: chartLabels, datasets: [{ label: 'Daily Revenue ($)', data: chartValues, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', borderWidth: 3, pointBackgroundColor: '#0ea5e9', pointRadius: 4, fill: true, tension: 0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + value; } } }, x: { grid: { display: false } } } }
+            });
+        }
     }
 }
 
-// Master Finance & Ledger Calculator
+// Master Ledger Calculator
 window.renderFinanceTable = function() {
     const tbody = document.getElementById('transactions-list');
     if(!tbody) return;
@@ -302,12 +327,14 @@ window.renderFinanceTable = function() {
 
     let transactionsArray = Object.entries(rawTransactionData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt);
 
-    // 1. Handle "Today" Default Logic
+    // Apply Admin Branch Filter to the Ledger!
+    if (dashboardBranchFilter !== 'all') {
+        transactionsArray = transactionsArray.filter(t => t.branch === dashboardBranchFilter);
+    }
+
     let startDateInput = document.getElementById('finance-start-date').value;
     let endDateInput = document.getElementById('finance-end-date').value;
 
-    // We use a safety flag so it only forces "Today" on the very first load.
-    // If you click the 'X' to clear dates later, it stays empty so you can see "All Time".
     if (!startDateInput && !endDateInput && !window.financeInitialized) {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -332,29 +359,28 @@ window.renderFinanceTable = function() {
     let tableHTML = '';
     let rowCount = 0;
 
-    // 2. Crunch the numbers
     transactionsArray.forEach(trans => {
         const isIncome = trans.type === 'inflow';
         const amt = trans.amount;
 
-        // A. Opening Balance Math (Everything BEFORE start date)
         if (trans.createdAt < startMs) {
             if (isIncome) openingBalance += amt;
             else openingBalance -= amt;
         }
         
-        // B. Period Math (Everything DURING start and end date)
         if (trans.createdAt >= startMs && trans.createdAt <= endMs) {
             if (isIncome) periodRevenue += amt;
             else periodExpenses += amt;
 
-            // Build UI string (Cap at 100 rows to prevent browser freezing)
             if (rowCount < 100) {
                 const timeStr = new Date(trans.createdAt).toLocaleDateString() + ' ' + new Date(trans.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
                 const amountColor = isIncome ? '#10b981' : '#ef4444'; 
                 const amountSign = isIncome ? '+' : '-'; 
                 const typeBadge = isIncome ? '<span class="badge-active-small">INCOME</span>' : '<span class="badge-neutral" style="background:#fee2e2; color:#ef4444;">EXPENSE</span>'; 
-                const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span>` : trans.description;
+                
+                // Add Branch Name tag if admin is viewing "All"
+                let branchTag = dashboardBranchFilter === 'all' && trans.branch ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px; margin-left:5px;">${trans.branch.replace('branch_', '').toUpperCase()}</span>` : '';
+                const descDisplay = trans.cashier ? `${trans.description} <span style="color:#9ca3af; font-size:0.75rem;">(${trans.cashier})</span> ${branchTag}` : trans.description;
                 
                 tableHTML += `<tr><td style="font-weight: 500; color: #111827;">${descDisplay}</td><td><span class="badge-neutral">${trans.category}</span></td><td>${typeBadge}</td><td style="color: ${amountColor}; font-weight: 600;">${amountSign}$${trans.amount.toFixed(2)}</td><td style="color: #6b7280; font-size: 0.8rem;">${timeStr}</td></tr>`; 
                 rowCount++;
@@ -362,14 +388,10 @@ window.renderFinanceTable = function() {
         }
     });
 
-    if (rowCount === 0) {
-        tableHTML = '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No transactions found for this date range.</td></tr>';
-    }
+    if (rowCount === 0) tableHTML = '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No transactions found for this date/branch range.</td></tr>';
 
-    // 3. Final Closing Balance Math
     closingBalance = openingBalance + periodRevenue - periodExpenses;
 
-    // 4. Paint the UI
     const elFinanceOpening = document.getElementById('finance-opening');
     if(elFinanceOpening) elFinanceOpening.innerText = (openingBalance >= 0 ? '$' : '-$') + Math.abs(openingBalance).toFixed(2);
     
@@ -395,7 +417,6 @@ window.deployNewPC = function() {
     const pcNumber = prompt("Enter PC Designation (e.g., PC_02, VIP_PC):");
     if(!pcNumber) return;
     set(ref(db, 'cafes/blessmas/machines/' + pcNumber), { status: 'free', endTime: 0 });
-    window.logActivity('SYSTEM', `New workstation added: ${pcNumber}`);
 }
 
 window.addPCTimer = function(pcId, minutes, priceStr) {
@@ -412,15 +433,14 @@ window.addPCTimer = function(pcId, minutes, priceStr) {
             amount: price, 
             category: 'PC', 
             cashier: currentUser, 
+            branch: currentBranch,
             createdAt: Date.now() 
         });
     }
-    window.logActivity('PC', `Unlocked ${pcId} for ${minutes} min ($${price})`);
 }
 
 window.lockPC = function(pcId) {
     update(ref(db, 'cafes/blessmas/machines/' + pcId), { status: 'free', endTime: 0 });
-    window.logActivity('PC', `Locked ${pcId}`);
 }
 
 onValue(pcsRef, (snapshot) => {
@@ -461,9 +481,7 @@ onValue(pcsRef, (snapshot) => {
 // ==========================================
 // UI LOGIC: TAB SWITCHING & PANELS
 // ==========================================
-window.toggleSidebar = function() {
-    document.querySelector('.sidebar').classList.toggle('mobile-open');
-}
+window.toggleSidebar = function() { document.querySelector('.sidebar').classList.toggle('mobile-open'); }
 
 window.switchTab = function(sectionId, element) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); element.classList.add('active');
@@ -482,12 +500,6 @@ window.openPanel = function(panelId) {
 }
 
 window.closeAllPanels = function() { document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open')); document.getElementById('panel-overlay').classList.remove('open'); }
-window.logActivity = function(type, message) {
-    const stream = document.getElementById('activity-stream'); if(stream && stream.innerHTML.includes("Monitoring")) stream.innerHTML = '';
-    const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}); let badge = ''; 
-    if(type === 'WIFI') badge = '<span class="feed-badge badge-wifi">WI-FI</span>'; if(type === 'POS') badge = '<span class="feed-badge badge-pos">POS</span>'; if(type === 'FINANCE') badge = '<span class="feed-badge badge-finance">FINANCE</span>'; if(type === 'SYSTEM') badge = '<span class="feed-badge badge-system">SYSTEM</span>'; if(type === 'PC') badge = '<span class="feed-badge badge-pc">PC SYSTEM</span>';
-    if(stream) stream.insertAdjacentHTML('afterbegin', `<li class="feed-item"><div>${badge} ${message}</div><div class="feed-time">${timeStr}</div></li>`);
-}
 
 // POS Cart Logic
 window.addToCart = function(name, price) { posCart.push({ name, price }); cartTotal += price; window.updateCartUI(); }
@@ -505,11 +517,11 @@ window.checkoutCart = function() {
         description: `POS Sale: ${itemNames}`, 
         amount: cartTotal, 
         category: 'POS', 
-        cashier: currentUser, 
+        cashier: currentUser,
+        branch: currentBranch, 
         createdAt: Date.now() 
     });
 
-    window.logActivity('POS', `${currentUser} completed sale for $${cartTotal.toFixed(2)}`); 
     alert(`Sale completed! Add $${cartTotal.toFixed(2)} to your drawer.`); 
     posCart = []; cartTotal = 0; window.updateCartUI(); 
 }
@@ -557,7 +569,11 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
     for (let i = 0; i < 5; i++) newToken += chars.charAt(Math.floor(Math.random() * chars.length)); 
     document.getElementById('generated-token').innerText = newToken; 
     
-    push(vouchersRef, { code: newToken, package: name, label: name, price: price, uptimeLimit: uptime, dataLimit: dataLimit, speedLimit: speed, status: "active", cashier: currentUser, phone: phoneInput, createdAt: Date.now() }); 
+    push(vouchersRef, { 
+        code: newToken, package: name, label: name, price: price, 
+        uptimeLimit: uptime, dataLimit: dataLimit, speedLimit: speed, 
+        status: "active", cashier: currentUser, branch: currentBranch, phone: phoneInput, createdAt: Date.now() 
+    }); 
     
     if(price > 0) { 
         currentShiftSales += price; 
@@ -568,12 +584,11 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
             description: `Sold Wi-Fi Token: ${newToken} (${name})`, 
             amount: price, 
             category: 'Wi-Fi', 
-            cashier: currentUser, 
+            cashier: currentUser,
+            branch: currentBranch, 
             createdAt: Date.now() 
         });
     }
-    
-    let logMsg = `${currentUser} generated <strong>${newToken}</strong> (${name}) for $${price.toFixed(2)}`;
     
     if(phoneInput) { 
         let formattedPhone = phoneInput.trim();
@@ -588,11 +603,10 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
             timestamp: Date.now()
         });
 
-        logMsg += ` and queued SMS to ${formattedPhone}`; 
         alert(`Token generated! SMS queued for ${formattedPhone}`); 
     }
 
-    window.logActivity('WIFI', logMsg); document.getElementById('customer-phone').value = '';
+    document.getElementById('customer-phone').value = '';
 }
 
 // ==========================================
@@ -617,7 +631,6 @@ onValue(liveNetworkRef, (snapshot) => {
         document.getElementById('total-down-speed').innerText = "0.00 Mbps"; 
         document.getElementById('total-up-speed').innerText = "0.00 Mbps"; 
         document.getElementById('network-active-count').innerText = "0";
-        // Force the voucher table to update its badges if someone logs out
         if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable();
         return; 
     }
@@ -649,7 +662,6 @@ onValue(liveNetworkRef, (snapshot) => {
     document.getElementById('total-up-speed').innerText = totalUp.toFixed(2) + " Mbps";
     document.getElementById('network-active-count').innerText = deviceArray.length;
     
-    // Force the voucher table to check for newly connected users
     if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable();
 });
 
@@ -668,37 +680,25 @@ function getExpiryData(createdAt, uptimeStr) {
     
     if (isNaN(val)) return { text: 'Unknown', ms: 0 };
 
-    if (str.includes('m') && !str.includes('mo')) {
-        msToAdd = val * 60 * 1000; 
-    } else if (str.includes('h')) {
-        msToAdd = val * 60 * 60 * 1000; 
-    } else if (str.includes('d')) {
-        msToAdd = val * 24 * 60 * 60 * 1000; 
-    } else {
-        msToAdd = val * 60 * 60 * 1000; 
-    }
+    if (str.includes('m') && !str.includes('mo')) { msToAdd = val * 60 * 1000; } 
+    else if (str.includes('h')) { msToAdd = val * 60 * 60 * 1000; } 
+    else if (str.includes('d')) { msToAdd = val * 24 * 60 * 60 * 1000; } 
+    else { msToAdd = val * 60 * 60 * 1000; }
 
     const expiryMs = createdAt + msToAdd;
     const dateObj = new Date(expiryMs);
-    const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const dateStr = dateObj.toLocaleDateString([], {month: 'short', day: 'numeric'});
-    
-    return { text: `${dateStr}, ${timeStr}`, ms: expiryMs };
+    return { text: `${dateObj.toLocaleDateString([], {month: 'short', day: 'numeric'})}, ${dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, ms: expiryMs };
 }
 
 let rawVoucherData = null;
-let renderVoucherTimeout = null; // NEW: The Debouncer
-window.pendingVoucherUpdates = new Set(); // NEW: The Infinite Loop Killer
+let renderVoucherTimeout = null; 
+window.pendingVoucherUpdates = new Set(); 
 
 onValue(vouchersRef, (snapshot) => { 
     rawVoucherData = snapshot.val(); 
     if (currentUser) {
-        // THE BULK PRINT CRASH FIX: Wait a fraction of a second before drawing.
-        // If 50 bulk tokens arrive at once, it only draws the table 1 time instead of 50 times.
         clearTimeout(renderVoucherTimeout);
-        renderVoucherTimeout = setTimeout(() => {
-            window.renderVoucherTable();
-        }, 200);
+        renderVoucherTimeout = setTimeout(() => { window.renderVoucherTable(); }, 200);
     }
 });
 
@@ -713,10 +713,11 @@ window.renderVoucherTable = function() {
     
     let vouchersArray = Object.entries(rawVoucherData).map(([key, val]) => ({ key, ...val })).sort((a, b) => b.createdAt - a.createdAt); 
     
-    if (currentRole !== 'admin') {
-        vouchersArray = vouchersArray.filter(v => 
-            String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase()
-        );
+    // Apply Admin Branch Filter to Vouchers
+    if (dashboardBranchFilter !== 'all') {
+        vouchersArray = vouchersArray.filter(v => v.branch === dashboardBranchFilter);
+    } else if (currentRole !== 'admin') {
+        vouchersArray = vouchersArray.filter(v => String(v.cashier).trim().toLowerCase() === String(currentUser).trim().toLowerCase());
     }
 
     const startDateInput = document.getElementById('wifi-start-date')?.value;
@@ -735,10 +736,7 @@ window.renderVoucherTable = function() {
         isFiltered = true;
     }
 
-    // MEMORY FIX: If not filtering, only display the top 100 so the browser doesn't freeze
-    if (!isFiltered) {
-        vouchersArray = vouchersArray.slice(0, 100);
-    }
+    if (!isFiltered) vouchersArray = vouchersArray.slice(0, 100);
 
     if (vouchersArray.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No tokens found for this criteria.</td></tr>';
@@ -754,31 +752,23 @@ window.renderVoucherTable = function() {
             ? `<span class="badge-neutral" style="color: #8b5cf6; border-color: #8b5cf6;">🖨️ Bulk Print</span>` 
             : (v.phone ? `<span class="badge-neutral" style="color: #0ea5e9; border-color: #0ea5e9;">📱 SMS Sent</span>` : `<span class="badge-neutral">📄 Printed</span>`);
         
-        const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'}</div>`;
+        let branchTag = dashboardBranchFilter === 'all' && v.branch ? `<span style="font-size:0.7rem; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${v.branch.replace('branch_', '').toUpperCase()}</span>` : '';
+        const cashierDisplay = `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px; font-weight: 600;">by ${v.cashier || 'Unknown'} ${branchTag}</div>`;
 
         const isConnected = window.liveActiveCodes && window.liveActiveCodes.includes(v.code);
 
-        // THE INFINITE LOOP FIX: Wait for Firebase to reply before ever checking again
         if (isConnected && v.status === 'active' && !window.pendingVoucherUpdates.has(v.key)) {
-            window.pendingVoucherUpdates.add(v.key); // Lock this token
+            window.pendingVoucherUpdates.add(v.key); 
             const now = Date.now();
-            update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { 
-                status: 'used',
-                startedAt: now
-            }).then(() => {
-                window.pendingVoucherUpdates.delete(v.key); // Unlock token when Firebase confirms
-            });
-            v.status = 'used'; // Fake the status locally so UI updates instantly
+            update(ref(db, 'cafes/blessmas/wifi_vouchers/' + v.key), { status: 'used', startedAt: now }).then(() => { window.pendingVoucherUpdates.delete(v.key); });
+            v.status = 'used'; 
             v.startedAt = now;
         }
 
         let expiryText = `<span style="color: #0ea5e9; font-style: italic;">Pending Login</span>`;
         let isExpired = false;
 
-        let startTime = v.startedAt;
-        if (!startTime && (v.status === 'used' || v.status === 'voided')) {
-            startTime = v.createdAt; 
-        }
+        let startTime = v.startedAt || ((v.status === 'used' || v.status === 'voided') ? v.createdAt : null);
 
         if (startTime) {
             const expiryInfo = getExpiryData(startTime, v.uptimeLimit);
@@ -789,38 +779,17 @@ window.renderVoucherTable = function() {
         let statusBadgeHTML = '';
         let canVoid = false;
 
-        if (v.status === 'voided') {
-            statusBadgeHTML = `<span class="badge-neutral" style="background:#fee2e2; color:#ef4444; text-decoration: line-through;">VOIDED</span>`;
-        } else if (isExpired) {
-            statusBadgeHTML = `<span class="badge-neutral" style="background:#f3f4f6; color:#9ca3af; text-decoration: line-through;">FINISHED</span>`;
-        } else if (isConnected) {
-            statusBadgeHTML = `<span class="badge-active-small" style="background:#dcfce7; color:#16a34a; font-weight: 700;">🟢 CONNECTED</span>`;
-        } else if (v.status === 'used') {
-            statusBadgeHTML = `<span class="badge-neutral" style="background:#fef3c7; color:#b45309; font-weight: 700;">🟡 PAUSED</span>`;
-            canVoid = false; 
-        } else {
-            statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">READY</span>`;
-            canVoid = true; 
-        }
+        if (v.status === 'voided') { statusBadgeHTML = `<span class="badge-neutral" style="background:#fee2e2; color:#ef4444; text-decoration: line-through;">VOIDED</span>`; } 
+        else if (isExpired) { statusBadgeHTML = `<span class="badge-neutral" style="background:#f3f4f6; color:#9ca3af; text-decoration: line-through;">FINISHED</span>`; } 
+        else if (isConnected) { statusBadgeHTML = `<span class="badge-active-small" style="background:#dcfce7; color:#16a34a; font-weight: 700;">🟢 CONNECTED</span>`; } 
+        else if (v.status === 'used') { statusBadgeHTML = `<span class="badge-neutral" style="background:#fef3c7; color:#b45309; font-weight: 700;">🟡 PAUSED</span>`; canVoid = false; } 
+        else { statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">READY</span>`; canVoid = true; }
         
         const safeLabel = v.label ? String(v.label).replace(/'/g, "\\'") : 'Token';
-
         let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${safeLabel}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
-        
-        if (canVoid) {
-            actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
-        }
+        if (canVoid) actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
 
-        tableHTML += `
-        <tr>
-            <td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td>
-            <td style="font-weight:500;">${v.label}</td>
-            <td>${deliveryBadge}${cashierDisplay}</td>
-            <td>${statusBadgeHTML}</td>
-            <td style="color:#6b7280; font-size:0.8rem;">${new Date(v.createdAt).toLocaleDateString([], {month:'short', day:'numeric'})} ${dateStr}</td>
-            <td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryText}</td>
-            <td>${actionButtons}</td>
-        </tr>`; 
+        tableHTML += `<tr><td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td><td style="font-weight:500;">${v.label}</td><td>${deliveryBadge}${cashierDisplay}</td><td>${statusBadgeHTML}</td><td style="color:#6b7280; font-size:0.8rem;">${new Date(v.createdAt).toLocaleDateString([], {month:'short', day:'numeric'})} ${dateStr}</td><td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryText}</td><td>${actionButtons}</td></tr>`; 
     }); 
 
     tbody.innerHTML = tableHTML;
@@ -828,65 +797,27 @@ window.renderVoucherTable = function() {
 
 window.voidToken = function(voucherKey, code, price, label) {
     if(!confirm(`⚠️ Are you sure you want to VOID token ${code}?\n\nThis will disable the code and refund $${price.toFixed(2)} from your shift expected cash.`)) return;
-
     update(ref(db, 'cafes/blessmas/wifi_vouchers/' + voucherKey), { status: 'voided', updatedAt: Date.now() });
 
     if (price > 0) {
         currentShiftSales -= price;
         window.updateShiftSalesUI();
-
-        push(transactionsRef, { 
-            type: 'inflow', 
-            description: `VOID REFUND: Token ${code} (${label})`, 
-            amount: -Math.abs(price), 
-            category: 'Wi-Fi', 
-            cashier: currentUser, 
-            createdAt: Date.now() 
-        });
+        push(transactionsRef, { type: 'inflow', description: `VOID REFUND: Token ${code} (${label})`, amount: -Math.abs(price), category: 'Wi-Fi', cashier: currentUser, branch: currentBranch, createdAt: Date.now() });
     }
 
-    const kickRef = ref(db, 'cafes/blessmas/commands/kick');
-    push(kickRef, { code: code, mac: 'VOID', timestamp: Date.now() });
-
-    window.logActivity('FINANCE', `🚫 ${currentUser} voided token ${code} (Refunded $${price.toFixed(2)})`);
+    push(ref(db, 'cafes/blessmas/commands/kick'), { code: code, mac: 'VOID', timestamp: Date.now() });
     alert(`Token ${code} has been voided. Shift cash adjusted.`);
 }
 
 window.printReceipt = function(code, label, price, uptime, data, timeStr) { 
     const priceDisplay = price > 0 ? `$${parseFloat(price).toFixed(2)}` : 'FREE';
-    const timeDisplay = uptime && uptime !== 'undefined' ? uptime : 'Unlimited';
-    const dataDisplay = data && data !== 'undefined' ? data : 'Unlimited';
-
     const printWindow = window.open('', '_blank', 'width=300,height=450'); 
-    printWindow.document.write(`
-    <html><head><style>
-        body { font-family: monospace; text-align: center; width: 58mm; color: black; margin: 0 auto; } 
-        h2 { margin: 5px 0; font-size: 1.2rem; } 
-        .code { font-size: 2.2rem; font-weight: bold; margin: 10px 0; border: 2px dashed #000; padding: 5px; } 
-        p { margin: 5px 0; font-size: 0.9rem; }
-        .details { text-align: left; font-size: 0.85rem; margin: 10px 0; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 5px 0; }
-        .details div { display: flex; justify-content: space-between; margin-bottom: 2px; }
-    </style></head><body>
-        <h2>Blessmas Wi-Fi</h2>
-        <p>Wi-Fi Access Code</p>
-        <div class="code">${code}</div>
-        <div class="details">
-            <div><span>Package:</span> <strong>${label}</strong></div>
-            <div><span>Amount:</span> <strong>${priceDisplay}</strong></div>
-            <div><span>Time Limit:</span> <strong>${timeDisplay}</strong></div>
-            <div><span>Data Limit:</span> <strong>${dataDisplay}</strong></div>
-        </div>
-        <p>Generated: ${timeStr}</p>
-        <hr>
-        <p>Powered by IntraCore.Digital</p>
-    </body></html>`); 
-    printWindow.document.close(); 
-    printWindow.focus(); 
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); 
+    printWindow.document.write(`<html><head><style>body { font-family: monospace; text-align: center; width: 58mm; color: black; margin: 0 auto; } h2 { margin: 5px 0; font-size: 1.2rem; } .code { font-size: 2.2rem; font-weight: bold; margin: 10px 0; border: 2px dashed #000; padding: 5px; } p { margin: 5px 0; font-size: 0.9rem; } .details { text-align: left; font-size: 0.85rem; margin: 10px 0; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 5px 0; } .details div { display: flex; justify-content: space-between; margin-bottom: 2px; }</style></head><body><h2>Blessmas Wi-Fi</h2><p>Wi-Fi Access Code</p><div class="code">${code}</div><div class="details"><div><span>Package:</span> <strong>${label}</strong></div><div><span>Amount:</span> <strong>${priceDisplay}</strong></div><div><span>Time Limit:</span> <strong>${uptime && uptime !== 'undefined' ? uptime : 'Unlimited'}</strong></div><div><span>Data Limit:</span> <strong>${data && data !== 'undefined' ? data : 'Unlimited'}</strong></div></div><p>Generated: ${timeStr}</p><hr><p>Powered by IntraCore.Digital</p></body></html>`); 
+    printWindow.document.close(); printWindow.focus(); setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); 
 }
 
 // ==========================================
-// MODULE: BULK PRINTING & SCRATCH CARDS
+// MODULE: BULK PRINTING
 // ==========================================
 let latestBulkBatch = []; 
 
@@ -908,18 +839,15 @@ window.generateBulkTokens = function() {
     for(let j = 0; j < qty; j++) {
         let newToken = ''; 
         for (let i = 0; i < 5; i++) newToken += chars.charAt(Math.floor(Math.random() * chars.length)); 
-        
         latestBulkBatch.push({ code: newToken, package: name, price: price, uptime: uptime, data: dataLimit });
 
         push(vouchersRef, { 
             code: newToken, package: name, label: name, price: price, 
             uptimeLimit: uptime, dataLimit: dataLimit, speedLimit: speed, 
-            status: "active", cashier: "BULK_SYSTEM", phone: "", createdAt: Date.now() 
+            status: "active", cashier: "BULK_SYSTEM", branch: currentBranch, phone: "", createdAt: Date.now() 
         });
     }
 
-    window.logActivity('SYSTEM', `🖨️ ${currentUser} bulk generated ${qty} x [${name}] vouchers.`);
-    
     document.getElementById('btn-bulk-gen').style.display = 'none';
     document.getElementById('bulk-count-display').innerText = qty;
     document.getElementById('bulk-print-preview').style.display = 'block';
@@ -927,65 +855,18 @@ window.generateBulkTokens = function() {
 
 window.printBulkGrid = function() {
     if(latestBulkBatch.length === 0) return alert("No batch found to print.");
-    
     const printWindow = window.open('', '_blank');
-    let html = `
-    <html><head>
-    <title>Print Vouchers</title>
-    <style>
-        body { font-family: 'Arial', sans-serif; margin: 0; padding: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .ticket { border: 2px dashed #9ca3af; padding: 12px; text-align: center; page-break-inside: avoid; border-radius: 8px;}
-        .brand { font-size: 14px; font-weight: bold; color: #000; margin-bottom: 2px; }
-        .pkg { font-size: 13px; color: #111827; margin-bottom: 8px; font-weight: 700; }
-        .code { font-size: 26px; font-family: monospace; font-weight: 900; letter-spacing: 3px; border: 1px solid #000; padding: 8px; background: #f9fafb; margin-bottom: 8px; }
-        .details-bar { display: flex; justify-content: space-between; background: #f3f4f6; padding: 5px 8px; font-size: 11px; font-weight: 600; color: #374151; border-radius: 4px; border: 1px solid #e5e7eb; }
-        .footer { font-size: 10px; color: #6b7280; margin-top: 6px; }
-        @media print { .grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
-    </style>
-    </head><body>
-    <div class="grid">`;
+    let html = `<html><head><title>Print Vouchers</title><style>body { font-family: 'Arial', sans-serif; margin: 0; padding: 10px; } .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; } .ticket { border: 2px dashed #9ca3af; padding: 12px; text-align: center; page-break-inside: avoid; border-radius: 8px;} .brand { font-size: 14px; font-weight: bold; color: #000; margin-bottom: 2px; } .pkg { font-size: 13px; color: #111827; margin-bottom: 8px; font-weight: 700; } .code { font-size: 26px; font-family: monospace; font-weight: 900; letter-spacing: 3px; border: 1px solid #000; padding: 8px; background: #f9fafb; margin-bottom: 8px; } .details-bar { display: flex; justify-content: space-between; background: #f3f4f6; padding: 5px 8px; font-size: 11px; font-weight: 600; color: #374151; border-radius: 4px; border: 1px solid #e5e7eb; } .footer { font-size: 10px; color: #6b7280; margin-top: 6px; } @media print { .grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }</style></head><body><div class="grid">`;
 
     latestBulkBatch.forEach(v => {
-        const priceDisplay = v.price > 0 ? `$${v.price.toFixed(2)}` : 'FREE';
-        const timeDisplay = v.uptime || 'Unlimited';
-        const dataDisplay = v.data || 'Unlimited';
-
-        html += `
-        <div class="ticket">
-            <div class="brand">Blessmas Wi-Fi</div>
-            <div class="pkg">${v.package}</div>
-            <div class="code">${v.code}</div>
-            <div class="details-bar">
-                <span>⏱️ ${timeDisplay}</span>
-                <span>📶 ${dataDisplay}</span>
-                <span style="color:#10b981;">💰 ${priceDisplay}</span>
-            </div>
-            <div class="footer">Connect & enter code to start</div>
-        </div>`;
+        html += `<div class="ticket"><div class="brand">Blessmas Wi-Fi</div><div class="pkg">${v.package}</div><div class="code">${v.code}</div><div class="details-bar"><span>⏱️ ${v.uptime || 'Unlimited'}</span><span>📶 ${v.data || 'Unlimited'}</span><span style="color:#10b981;">💰 ${v.price > 0 ? '$'+v.price.toFixed(2) : 'FREE'}</span></div><div class="footer">Connect & enter code to start</div></div>`;
     });
 
     html += `</div></body></html>`;
-    
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); }, 500);
-    window.closeAllPanels();
+    printWindow.document.write(html); printWindow.document.close(); printWindow.focus(); setTimeout(() => { printWindow.print(); }, 500); window.closeAllPanels();
 }
 
-// ==========================================
-// MODULE: KICK USER (DISCONNECT)
-// ==========================================
 window.kickUser = function(code, mac) {
     if(!confirm(`⚠️ Are you sure you want to disconnect ${code} from the network?`)) return;
-    
-    const kickRef = ref(db, 'cafes/blessmas/commands/kick');
-    push(kickRef, { 
-        code: code, 
-        mac: mac, 
-        timestamp: Date.now() 
-    });
-    
-    window.logActivity('SYSTEM', `🥾 Requested disconnect for user ${code}`);
+    push(ref(db, 'cafes/blessmas/commands/kick'), { code: code, mac: mac, timestamp: Date.now() });
 }
