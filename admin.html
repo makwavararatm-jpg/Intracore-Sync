@@ -16,7 +16,7 @@
     /* --- LOGIN OVERLAY (CINEMATIC FUTURISTIC) --- */
     #login-overlay { 
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-        background: #000; /* Fallback */
+        background: #000; 
         z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; 
         overflow: hidden;
     }
@@ -36,7 +36,6 @@
         background: radial-gradient(circle at center, rgba(15, 32, 39, 0.75) 0%, rgba(11, 19, 23, 0.85) 40%, rgba(0, 0, 0, 0.95) 100%);
     }
 
-    /* The 4 Cafe Images (You can swap these URLs to your own later) */
     .slide-1 { background-image: url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1920&q=80'); animation-delay: 0s; }
     .slide-2 { background-image: url('https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1920&q=80'); animation-delay: 4s; }
     .slide-3 { background-image: url('https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1920&q=80'); animation-delay: 8s; }
@@ -57,7 +56,6 @@
         background-size: 40px 40px; z-index: 1; pointer-events: none;
     }
 
-    /* Make sure content sits above the slideshow */
     .login-content-wrapper { z-index: 2; display: flex; flex-direction: column; align-items: center; }
 
     .login-card { 
@@ -99,12 +97,13 @@
     }
     .btn-login:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6); }
 
+
     /* --- TOP NAVIGATION BAR --- */
     .sidebar { width: 100vw; background: #0f3460; color: white; height: 65px; position: fixed; top: 0; left: 0; display: flex; flex-direction: row; align-items: center; padding: 0 20px; z-index: 100; box-sizing: border-box; }
     .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: white; margin-right: 30px; }
     .sidebar-brand span { color: #38bdf8; }
     .nav-menu { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: row; gap: 5px; overflow-x: auto; white-space: nowrap; }
-    .nav-menu::-webkit-scrollbar { display: none; } /* Hides scrollbar on mobile */
+    .nav-menu::-webkit-scrollbar { display: none; } 
     .nav-item { padding: 8px 12px; font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #94a3b8; border-radius: 6px; transition: 0.2s; }
     .nav-item:hover { background-color: rgba(255,255,255,0.05); color: white; }
     .nav-item.active { background: rgba(255,255,255,0.1); color: #ffffff; }
@@ -126,7 +125,7 @@
     .quick-btn:hover { background: #e5e7eb; }
     .date-filter { padding: 8px 12px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.85rem; font-weight: 500; background: white; color: #374151; cursor: pointer; outline: none; }
 
-    /* --- DASHBOARD METRICS (FULL WIDTH GRID) --- */
+    /* --- DASHBOARD METRICS --- */
     .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; width: 100%; }
     
     @media (max-width: 1100px) {
@@ -210,7 +209,7 @@
     .live-dot { display: inline-block; width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 
-  /* --- MOBILE RESPONSIVE PATCH (NATIVE 2-COLUMN EXPERIENCE) --- */
+  /* --- MOBILE RESPONSIVE PATCH --- */
     .mobile-menu-btn { display: none !important; }
     
     @media (max-width: 768px) {
@@ -298,7 +297,7 @@
       <li class="nav-item" id="nav-staff" onclick="window.switchTab('staff', this)">👥 Staff</li>
       <li class="nav-item" id="nav-settings" onclick="window.switchTab('settings', this)">⚙️ Settings</li>
     </ul>
-    <div class="sidebar-footer">v3.3.0 Branch Update<br>© 2026 IntraCore.Digital</div>
+    <div class="sidebar-footer">v3.4.0 Dynamic Branches Update<br>© 2026 IntraCore.Digital</div>
   </div>
 
   <div class="main-content">
@@ -334,9 +333,6 @@
               <span style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">Location:</span>
               <select class="date-filter" id="branch-filter" onchange="window.changeBranch(this.value)">
                   <option value="all" selected>🏢 All Branches (Global)</option>
-                  <option value="branch_main">📍 Main Branch</option>
-                  <option value="branch_cbd">📍 CBD Branch</option>
-                  <option value="branch_uptown">📍 Uptown Branch</option>
               </select>
           </div>
       </div>
@@ -508,6 +504,9 @@
     </div>
   
     <div id="sec-settings" class="app-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">🏢 Branch Locations</h2><button onclick="window.openPanel('branch')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Add Branch</button></div>
+        <div class="table-card" style="width: 100%; max-width: 100%; margin-top:0; margin-bottom:40px;"><table class="voucher-table"><thead><tr><th>Branch Name</th><th>System Code</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="branches-list"><tr><td colspan="3">Loading branches...</td></tr></tbody></table></div>
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📦 Active Voucher Profiles</h2><button onclick="window.openPanel('settings')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Create New Package</button></div>
         <div class="table-card" style="width: 100%; max-width: 100%; margin-top:0;"><table class="voucher-table"><thead><tr><th>Package Name</th><th>Price</th><th>Time Limit</th><th>Data Quota</th><th>Speed Limit</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="packages-list"><tr><td colspan="6">Loading packages...</td></tr></tbody></table></div>
     </div>
@@ -515,6 +514,20 @@
   </div>
 
   <div class="panel-overlay" id="panel-overlay" onclick="window.closeAllPanels()"></div>
+
+  <div class="side-panel" id="panel-branch">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">➕ Add Branch</h2>
+        <button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button>
+    </div>
+    <form id="branch-form" onsubmit="event.preventDefault(); window.saveBranch();">
+        <div class="form-group">
+            <label>Branch Name</label>
+            <input type="text" id="branch-name" required placeholder="e.g. CBD Branch">
+        </div>
+        <button type="submit" class="btn-save">💾 Save Branch</button>
+    </form>
+  </div>
 
   <div class="side-panel" id="panel-generate-token">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -566,7 +579,7 @@
         <div class="form-group"><label>Staff Full Name</label><input type="text" id="staff-name" required placeholder="e.g. Tafadzwa"></div>
         <div class="form-group"><label>4-Digit Login PIN</label><input type="text" id="staff-pin" pattern="[0-9]{4}" title="Must be exactly 4 numbers" required placeholder="1234" maxlength="4"></div>
         <div class="form-group"><label>System Role</label><select id="staff-role"><option value="cashier">Cashier (Sales & Vouchers Only)</option><option value="admin">Administrator (Full Access)</option></select></div>
-        <div class="form-group"><label>Assigned Branch</label><select id="staff-branch"><option value="branch_main">📍 Main Branch</option><option value="branch_cbd">📍 CBD Branch</option><option value="branch_uptown">📍 Uptown Branch</option></select></div>
+        <div class="form-group"><label>Assigned Branch</label><select id="staff-branch"><option value="branch_main">📍 Main Branch</option></select></div>
         <button type="submit" class="btn-primary">💾 Save Staff Member</button>
     </form>
   </div>
