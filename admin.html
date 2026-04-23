@@ -99,7 +99,6 @@
     }
     .btn-login:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6); }
 
-
     /* --- TOP NAVIGATION BAR --- */
     .sidebar { width: 100vw; background: #0f3460; color: white; height: 65px; position: fixed; top: 0; left: 0; display: flex; flex-direction: row; align-items: center; padding: 0 20px; z-index: 100; box-sizing: border-box; }
     .sidebar-brand { font-size: 1.3rem; font-weight: 700; color: white; margin-right: 30px; }
@@ -253,7 +252,6 @@
         .voucher-table { min-width: 500px; } 
         .feed-card { grid-column: span 2 !important; height: auto; padding: 15px; }
 
-        /* Mobile specific styling for the profit card to ensure it spans correctly */
         #card-profit { grid-column: span 2 !important; }
     }
   </style>
@@ -300,7 +298,7 @@
       <li class="nav-item" id="nav-staff" onclick="window.switchTab('staff', this)">👥 Staff</li>
       <li class="nav-item" id="nav-settings" onclick="window.switchTab('settings', this)">⚙️ Settings</li>
     </ul>
-    <div class="sidebar-footer">v3.2.0 Finance Update<br>© 2026 IntraCore.Digital</div>
+    <div class="sidebar-footer">v3.3.0 Branch Update<br>© 2026 IntraCore.Digital</div>
   </div>
 
   <div class="main-content">
@@ -333,13 +331,12 @@
           </div>
           
           <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 15px; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-              <span style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">Filter Data:</span>
-              <select class="date-filter" id="global-date-filter">
-                  <option value="today">Today (Current Shift)</option>
-                  <option value="yesterday">Yesterday</option>
-                  <option value="this_week">This Week</option>
-                  <option value="this_month">This Month</option>
-                  <option value="all_time" selected>All Time History</option>
+              <span style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">Location:</span>
+              <select class="date-filter" id="branch-filter" onchange="window.changeBranch(this.value)">
+                  <option value="all" selected>🏢 All Branches (Global)</option>
+                  <option value="branch_main">📍 Main Branch</option>
+                  <option value="branch_cbd">📍 CBD Branch</option>
+                  <option value="branch_uptown">📍 Uptown Branch</option>
               </select>
           </div>
       </div>
@@ -402,7 +399,7 @@
 
     <div id="sec-staff" class="app-section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">👥 Staff Directory & Access Control</h2><button onclick="window.openPanel('staff')" style="background-color: #0f3460; color: white; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; border-radius: 6px; border:none; cursor:pointer;">➕ Add Staff Member</button></div>
-      <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><table class="voucher-table"><thead><tr><th>Staff Name</th><th>System Role</th><th>Login PIN</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="staff-list"><tr><td colspan="4">Loading staff directory...</td></tr></tbody></table></div>
+      <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><table class="voucher-table"><thead><tr><th>Staff Name</th><th>System Role</th><th>Login PIN</th><th>Branch</th><th style="text-align: right;">Actions</th></tr></thead><tbody id="staff-list"><tr><td colspan="5">Loading staff directory...</td></tr></tbody></table></div>
     </div>
 
     <div id="sec-shifts" class="app-section">
@@ -565,7 +562,13 @@
 
   <div class="side-panel" id="panel-staff">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><h2 id="staff-form-title" style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">➕ Add Staff</h2><button onclick="window.closeAllPanels()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af;">✖</button></div>
-    <form id="staff-form" onsubmit="event.preventDefault(); window.saveStaff();"><div class="form-group"><label>Staff Full Name</label><input type="text" id="staff-name" required placeholder="e.g. Tafadzwa"></div><div class="form-group"><label>4-Digit Login PIN</label><input type="text" id="staff-pin" pattern="[0-9]{4}" title="Must be exactly 4 numbers" required placeholder="1234" maxlength="4"></div><div class="form-group"><label>System Role</label><select id="staff-role"><option value="cashier">Cashier (Sales & Vouchers Only)</option><option value="admin">Administrator (Full Access)</option></select></div><button type="submit" class="btn-primary">💾 Save Staff Member</button></form>
+    <form id="staff-form" onsubmit="event.preventDefault(); window.saveStaff();">
+        <div class="form-group"><label>Staff Full Name</label><input type="text" id="staff-name" required placeholder="e.g. Tafadzwa"></div>
+        <div class="form-group"><label>4-Digit Login PIN</label><input type="text" id="staff-pin" pattern="[0-9]{4}" title="Must be exactly 4 numbers" required placeholder="1234" maxlength="4"></div>
+        <div class="form-group"><label>System Role</label><select id="staff-role"><option value="cashier">Cashier (Sales & Vouchers Only)</option><option value="admin">Administrator (Full Access)</option></select></div>
+        <div class="form-group"><label>Assigned Branch</label><select id="staff-branch"><option value="branch_main">📍 Main Branch</option><option value="branch_cbd">📍 CBD Branch</option><option value="branch_uptown">📍 Uptown Branch</option></select></div>
+        <button type="submit" class="btn-primary">💾 Save Staff Member</button>
+    </form>
   </div>
 
   <div class="side-panel" id="panel-settings">
