@@ -1,9 +1,22 @@
 const admin = require('firebase-admin');
 
-// 1. Initialize Firebase Admin using your Netlify Secure Vault
+// Hardcoded JSON (Not recommended for production!)
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "intracore-cyber-syn",
+apiKey: "AIzaSyB7Ofntn3k7ingeYINtCr6SNQB69lct4VA",
+  authDomain: "intracore-cyber-syn.firebaseapp.com",
+  databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com",
+  projectId: "intracore-cyber-syn",
+  storageBucket: "intracore-cyber-syn.firebasestorage.app",
+  messagingSenderId: "415471049270",
+  appId: "1:415471049270:web:151584cf1ec0b3dd425697",
+  measurementId: "G-24H4T6WB4P"
+};
+
 if (!admin.apps.length) {
     admin.initializeApp({
-        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+        credential: admin.credential.cert(serviceAccount),
         databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com"
     });
 }
