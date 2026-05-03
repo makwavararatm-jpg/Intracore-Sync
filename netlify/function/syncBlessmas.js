@@ -1,20 +1,22 @@
 const admin = require('firebase-admin');
 
-exports.handler = async function(event, context) {
-    // 1. Firebase Configuration (Updated for Blessmas)
-    const databaseURL = "https://intracore-cyber-syn-default-rtdb.firebaseio.com";
-    const branchPath = "cafes/blessmas/wifi_vouchers";
-    
-    // We removed the authSecret because your database is currently open 
-    // and passing a Web API key causes a Firebase rejection error.
-    const fetchUrl = `${databaseURL}/${branchPath}.json`;
+// 1. Initialize Firebase Admin using your Netlify Secure Vault
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+        databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com"
+    });
+}
 
+// 2. The Main Function Handler
 exports.handler = async (event, context) => {
     const db = admin.database();
+    
+    // Updated path for the Blessmas deployment
     const vouchersRef = db.ref('cafes/blessmas/wifi_vouchers');
     
     try {
-        // 1. Get all vouchers
+        // Step A: Get all vouchers
         const snapshot = await vouchersRef.once('value');
         if (!snapshot.exists()) return { statusCode: 200, body: "NO_NEW_TOKENS" };
 
@@ -23,7 +25,7 @@ exports.handler = async (event, context) => {
         let updates = {};
         let hasNewTokens = false;
 
-        // 2. Loop through and find un-synced tokens
+        // Step B: Loop through and find un-synced tokens
         for (const [key, data] of Object.entries(vouchers)) {
             if (data.synced !== true) {
                 hasNewTokens = true;
@@ -43,7 +45,7 @@ exports.handler = async (event, context) => {
             }
         }
 
-        // 3. Update Firebase and send text to MikroTik
+        // Step C: Update Firebase and send text to MikroTik
         if (hasNewTokens) {
             await vouchersRef.update(updates);
             return { statusCode: 200, body: mikrotikPayload };
