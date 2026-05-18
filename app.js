@@ -511,22 +511,62 @@ window.generateDynamicToken = function(name, price, uptime, dataLimit, speed) {
 // ==========================================
 const liveNetworkRef = ref(db, 'cafes/blessmas/live_network');
 window.liveActiveCodes = [];
+window.previousTraffic = window.previousTraffic || {}; // Stores previous bytes to calculate speed
+
 onValue(liveNetworkRef, (snapshot) => {
-    const tbody = document.getElementById('live-network-list'); const rawData = snapshot.val();
-    let deviceArray = []; if (rawData) { deviceArray = Array.isArray(rawData) ? rawData : Object.values(rawData); }
+    const tbody = document.getElementById('live-network-list'); 
+    const rawData = snapshot.val();
+    
+    let deviceArray = []; 
+    if (rawData) { 
+        deviceArray = Array.isArray(rawData) ? rawData : Object.values(rawData); 
+    }
+    
     window.liveActiveCodes = []; 
     if(deviceArray.length === 0) { 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #9ca3af;">No devices physically connected right now.</td></tr>'; 
-        document.getElementById('total-down-speed').innerText = "0.00 Mbps"; document.getElementById('total-up-speed').innerText = "0.00 Mbps"; document.getElementById('network-active-count').innerText = "0";
-        if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); return; 
+        document.getElementById('total-down-speed').innerText = "0.00 Mbps"; 
+        document.getElementById('total-up-speed').innerText = "0.00 Mbps"; 
+        document.getElementById('network-active-count').innerText = "0";
+        if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable(); 
+        return; 
     }
+    
     let html = ''; let totalDown = 0; let totalUp = 0;
+    
     deviceArray.forEach(device => {
-        totalDown += parseFloat(device.downloadSpeed || 0); totalUp += parseFloat(device.uploadSpeed || 0); window.liveActiveCodes.push(device.code); 
-        html += `<tr><td><span class="live-dot"></span> Online</td><td style="font-weight: 600; font-family: monospace; font-size: 1.1rem; color:#111827;">${device.code}</td><td style="color: #6b7280; font-size: 0.8rem;">${device.ip}<br>${device.mac}</td><td style="color: #0ea5e9; font-weight:600;">${device.downloadSpeed} Mbps</td><td style="color: #f59e0b; font-weight:600;">${device.uploadSpeed} Mbps</td><td style="color: #10b981; font-weight:600;">${device.timeleft}</td><td><button class="btn-print" onclick="kickUser('${device.code}', '${device.mac}')" style="background:white; color:#ef4444; border-color:#fca5a5;">Disconnect</button></td></tr>`;
+        const mac = device.mac;
+        const bIn = parseInt(device.bytesIn) || 0;    // Upload from user
+        const bOut = parseInt(device.bytesOut) || 0;  // Download to user
+        
+        let upMbps = "0.00"; 
+        let downMbps = "0.00";
+        
+        // Calculate speed based on the difference from 30 seconds ago
+        if (window.previousTraffic[mac]) {
+            const deltaIn = bIn - window.previousTraffic[mac].in;
+            const deltaOut = bOut - window.previousTraffic[mac].out;
+            
+            // Convert Bytes to Megabits per second (over a ~30 second interval)
+            upMbps = Math.max(0, ((deltaIn * 8) / 1000000 / 30)).toFixed(2);
+            downMbps = Math.max(0, ((deltaOut * 8) / 1000000 / 30)).toFixed(2);
+        }
+        
+        // Save current bytes for the next calculation
+        window.previousTraffic[mac] = { in: bIn, out: bOut };
+        
+        totalDown += parseFloat(downMbps); 
+        totalUp += parseFloat(upMbps); 
+        window.liveActiveCodes.push(device.code); 
+        
+        html += `<tr><td><span class="live-dot"></span> Online</td><td style="font-weight: 600; font-family: monospace; font-size: 1.1rem; color:#111827;">${device.code}</td><td style="color: #6b7280; font-size: 0.8rem;">${device.ip}<br>${device.mac}</td><td style="color: #0ea5e9; font-weight:600;">${downMbps} Mbps</td><td style="color: #f59e0b; font-weight:600;">${upMbps} Mbps</td><td style="color: #10b981; font-weight:600;">${device.timeleft}</td><td><button class="btn-print" onclick="window.kickUser('${device.code}', '${device.mac}')" style="background:white; color:#ef4444; border-color:#fca5a5;">Disconnect</button></td></tr>`;
     });
+    
     tbody.innerHTML = html;
-    document.getElementById('total-down-speed').innerText = totalDown.toFixed(2) + " Mbps"; document.getElementById('total-up-speed').innerText = totalUp.toFixed(2) + " Mbps"; document.getElementById('network-active-count').innerText = deviceArray.length;
+    document.getElementById('total-down-speed').innerText = totalDown.toFixed(2) + " Mbps"; 
+    document.getElementById('total-up-speed').innerText = totalUp.toFixed(2) + " Mbps"; 
+    document.getElementById('network-active-count').innerText = deviceArray.length;
+    
     if (typeof window.renderVoucherTable === 'function') window.renderVoucherTable();
 });
 
