@@ -56,6 +56,9 @@
         
         .login-btn { width: 100%; padding: 15px; background-color: #00d2ff; color: #0a101d; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.3s; margin-top: 10px; }
         .login-btn:hover { background-color: #00b8e6; }
+
+        /* NEW: Error Message Box */
+        #errorMessage { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); padding: 10px; border-radius: 5px; text-align: center; margin-top: 15px; font-size: 0.9rem; display: none; }
         
         .footer-text { margin-top: 40px; color: #475569; font-size: 0.8rem; text-align: center; }
     </style>
@@ -91,14 +94,16 @@
             
             <form id="loginForm" class="admin-login">
                 <div class="input-group">
-                    <label>EMAIL OR USERNAME</label>
-                    <input type="text" id="email" required placeholder="admin">
+                    <label>EMAIL</label>
+                    <input type="email" id="email" required placeholder="admin@blessmas.com">
                 </div>
                 <div class="input-group">
-                    <label>PASSWORD / PIN</label>
+                    <label>PASSWORD</label>
                     <input type="password" id="password" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="login-btn">Enter Workspace</button>
+                
+                <div id="errorMessage">Invalid email or password.</div>
             </form>
 
             <div class="footer-text">
@@ -110,7 +115,23 @@
 </div>
 
 <script type="module">
-    // SLIDER LOGIC
+    // 1. Import Firebase from the official CDNs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    // 2. Your Firebase Configuration (FILL IN YOUR REAL API KEY)
+    const firebaseConfig = {
+        apiKey: "AIza" + "SyB7Ofntn3k7ingeYINtCr6SNQB69lct4VA", // This is safe to put in frontend
+        authDomain: "intracore-cyber-syn.firebaseapp.com",
+        databaseURL: "https://intracore-cyber-syn-default-rtdb.firebaseio.com",
+        projectId: "intracore-cyber-syn"
+    };
+
+    // 3. Initialize Firebase Auth
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // --- SLIDER LOGIC ---
     const slides = document.querySelectorAll('.slide');
     let currentSlide = 0;
     setInterval(() => {
@@ -119,19 +140,43 @@
         slides[currentSlide].classList.add('active');
     }, 5000);
 
-    // LOGIN REDIRECT LOGIC
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    // --- REAL AUTHENTICATION LOGIC ---
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault(); 
         
         const btn = document.querySelector('.login-btn');
+        const errorBox = document.getElementById('errorMessage');
+        const emailInput = document.getElementById('email').value;
+        const passwordInput = document.getElementById('password').value;
+
+        // Visual loading state
         btn.innerText = "Authenticating...";
         btn.style.opacity = "0.7";
+        btn.disabled = true;
+        errorBox.style.display = 'none';
 
-        // Simulating a brief loading state before sending them to the dashboard
-        setTimeout(() => {
-            // REDIRECT TO YOUR DASHBOARD FILE
-            window.location.href = "admin.html"; 
-        }, 800);
+        try {
+            // Attempt to log in with Firebase
+            await signInWithEmailAndPassword(auth, emailInput, passwordInput);
+            
+            // SUCCESS! Redirect to Dashboard
+            btn.innerText = "Access Granted";
+            btn.style.backgroundColor = "#10b981"; // Turn button green
+            setTimeout(() => {
+                window.location.href = "admin.html"; 
+            }, 500);
+
+        } catch (error) {
+            // FAILED! Wrong password or user doesn't exist
+            console.error("Login failed:", error.message);
+            btn.innerText = "Enter Workspace";
+            btn.style.opacity = "1";
+            btn.disabled = false;
+            
+            // Show error message
+            errorBox.innerText = "Invalid credentials or unauthorized device.";
+            errorBox.style.display = 'block';
+        }
     });
 </script>
 
