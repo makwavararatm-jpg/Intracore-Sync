@@ -649,4 +649,22 @@ window.printBulkGrid = function() {
     printWindow.document.write(html); printWindow.document.close(); printWindow.focus(); setTimeout(() => { printWindow.print(); }, 500); window.closeAllPanels();
 }
 
-window.kickUser = function(code, mac) { if(!confirm(`⚠️ Are you sure you want to disconnect ${code}?`)) return; push(ref(db, 'cafes/blessmas/commands/kick'), { code: code, mac: mac, timestamp: Date.now() }); }
+window.kickUser = async function(code, mac) { 
+    if(!confirm(`⚠️ Are you sure you want to disconnect ${code}?`)) return; 
+    
+    try {
+        // Push the exact object Netlify is looking for
+        push(ref(db, 'cafes/blessmas/commands/kick'), { 
+            code: code, 
+            mac: mac, 
+            processed: false,
+            reason: "Manual Dashboard Disconnect",
+            timestamp: Date.now() 
+        }); 
+        
+        alert(`⚡ Disconnect command fired! The router will drop ${code} within 60 seconds. \n\n(Note: The table will not update visually until we rebuild the telemetry loop).`);
+    } catch (error) {
+        console.error("Failed to push kick command:", error);
+        alert("Error sending command.");
+    }
+}
