@@ -39,8 +39,8 @@ exports.handler = async function(event, context) {
         if (kickJobs && !kickJobs.error) {
             for (const [id, kick] of Object.entries(kickJobs)) {
                 if (kick.processed === false || !kick.processed) {
-                    // Format: code,KICK,0 (matches the 3-value router parser)
-                    outputString = `${kick.code},KICK,0\n`;
+                    // UPDATED: Formatted with semicolons for native MikroTik array reading
+                    outputString = `${kick.code};KICK;0`;
                     hasAction = true;
 
                     // Mark kick as processed in Firebase
@@ -49,7 +49,7 @@ exports.handler = async function(event, context) {
                         body: JSON.stringify({ processed: true }),
                         headers: { 'Content-Type': 'application/json' }
                     });
-                    break; // Stream exactly one action to prevent string pollution
+                    break; 
                 }
             }
         }
@@ -74,15 +74,15 @@ exports.handler = async function(event, context) {
                             let rawData = voucher.dataLimit.toUpperCase().replace(/\s+/g, '');
                             if (rawData.includes('GB') || rawData.includes('G')) {
                                 let val = parseFloat(rawData.replace(/[A-Z]/g, ''));
-                                bytes = Math.floor(val * 1073741824); // GB to Bytes
+                                bytes = Math.floor(val * 1073741824); 
                             } else if (rawData.includes('MB') || rawData.includes('M')) {
                                 let val = parseFloat(rawData.replace(/[A-Z]/g, ''));
-                                bytes = Math.floor(val * 1048576);  // MB to Bytes
+                                bytes = Math.floor(val * 1048576); 
                             }
                         }
                         
-                        // Format: code,uptime,bytes
-                        outputString = `${code},${uptime},${bytes}\n`;
+                        // UPDATED: Formatted with semicolons and stripped trailing newline
+                        outputString = `${code};${uptime};${bytes}`;
                         hasAction = true;
 
                         // Mark the token as synced in Firebase
@@ -92,7 +92,7 @@ exports.handler = async function(event, context) {
                             body: JSON.stringify({ synced: true }), 
                             headers: { 'Content-Type': 'application/json' }
                         });
-                        break; // Stream exactly one action to prevent string pollution
+                        break; 
                     }
                 }
             }
