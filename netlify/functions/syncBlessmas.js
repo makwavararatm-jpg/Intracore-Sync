@@ -6,7 +6,7 @@ exports.handler = async function(event, context) {
 
     try {
         // ==========================================
-        // 1. PROCESS SMS QUEUE (The Heartbeat)
+        // 1. PROCESS SMS QUEUE
         // ==========================================
         const smsResponse = await fetch(`${databaseURL}/${smsPath}.json`);
         const smsJobs = await smsResponse.json();
@@ -15,7 +15,6 @@ exports.handler = async function(event, context) {
             for (const [jobId, job] of Object.entries(smsJobs)) {
                 if (job.status === 'pending') {
                     const success = await sendBlessmasSMS(job.to, job.message);
-                    
                     if (success) {
                         await fetch(`${databaseURL}/${smsPath}/${jobId}.json`, {
                             method: 'PATCH',
@@ -31,7 +30,7 @@ exports.handler = async function(event, context) {
         let hasAction = false;
 
         // ==========================================
-        // 2. PROCESS KICK COMMANDS (Highest Priority)
+        // 2. PROCESS KICK COMMANDS (High Priority)
         // ==========================================
         const kickResponse = await fetch(`${databaseURL}/${kickPath}.json`);
         const kickJobs = await kickResponse.json();
@@ -39,11 +38,9 @@ exports.handler = async function(event, context) {
         if (kickJobs && !kickJobs.error) {
             for (const [id, kick] of Object.entries(kickJobs)) {
                 if (kick.processed === false || !kick.processed) {
-                    // UPDATED: Formatted with semicolons for native MikroTik array reading
-                    outputString = `${kick.code};KICK;0`;
+                    outputString = `${kick.code},KICK,0`;
                     hasAction = true;
 
-                    // Mark kick as processed in Firebase
                     await fetch(`${databaseURL}/${kickPath}/${id}.json`, {
                         method: 'PATCH',
                         body: JSON.stringify({ processed: true }),
@@ -55,7 +52,7 @@ exports.handler = async function(event, context) {
         }
 
         // ==========================================
-        // 3. PROCESS WI-FI TOKENS (If no kick is pending)
+        // 3. PROCESS WI-FI TOKENS
         // ==========================================
         if (!hasAction) {
             const fetchUrl = `${databaseURL}/${wifiPath}.json`;
@@ -68,7 +65,7 @@ exports.handler = async function(event, context) {
                         const code = voucher.code;
                         const uptime = (voucher.uptimeLimit && voucher.uptimeLimit.toLowerCase() !== 'unlimited') ? voucher.uptimeLimit : '0';
                         
-                        // --- CALCULATE DATA LIMIT BYTES ---
+                        // Calculate Data Limit Bytes
                         let bytes = 0;
                         if (voucher.dataLimit && voucher.dataLimit.toLowerCase() !== 'unlimited') {
                             let rawData = voucher.dataLimit.toUpperCase().replace(/\s+/g, '');
@@ -81,11 +78,9 @@ exports.handler = async function(event, context) {
                             }
                         }
                         
-                        // UPDATED: Formatted with semicolons and stripped trailing newline
-                        outputString = `${code};${uptime};${bytes}`;
+                        outputString = `${code},${uptime},${bytes}`;
                         hasAction = true;
 
-                        // Mark the token as synced in Firebase
                         const updateUrl = `${databaseURL}/${wifiPath}/${id}.json`;
                         await fetch(updateUrl, {
                             method: 'PATCH',
@@ -98,12 +93,10 @@ exports.handler = async function(event, context) {
             }
         }
 
-        // If no kicks and no new tokens need syncing
         if (!hasAction) {
             return { statusCode: 200, body: "NO_NEW_TOKENS" };
         }
 
-        // Hand the clean 3-part data block back to the MikroTik
         return {
             statusCode: 200,
             headers: { "Content-Type": "text/plain" },
@@ -117,14 +110,11 @@ exports.handler = async function(event, context) {
 };
 
 // ==========================================
-// 4. THE SMS POP ENGINE (Helper Function)
+// 4. THE SMS POP ENGINE
 // ==========================================
 async function sendBlessmasSMS(phone, messageBody) {
     const SMS_POP_TOKEN = "56|arLEaElnvhnn5OQyiDedClFxf6mj768dVK83pRyYf8d79119"; 
-    
     try {
-        console.log(`Preparing to send SMS to ${phone}...`);
-        
         const response = await fetch('https://smspop.co.zw/api/campaigns', {
             method: 'POST',
             headers: {
@@ -140,17 +130,8 @@ async function sendBlessmasSMS(phone, messageBody) {
                 manual_contacts: phone
             })
         });
-
-        if (response.ok) {
-            console.log(`🟢 SUCCESS: SMS sent to ${phone}`);
-            return true;
-        } else {
-            const errorText = await response.text();
-            console.error(`🔴 API REJECTED THE SMS:`, errorText);
-            return false;
-        }
+        return response.ok;
     } catch (error) {
-        console.error(`🔴 NETWORK CRASH WHILE SENDING SMS:`, error.message);
         return false;
     }
 }
