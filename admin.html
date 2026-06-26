@@ -409,14 +409,53 @@
       <div class="table-card" style="width: 100%; max-width: 100%; margin-top: 0;"><h2 style="margin-top: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">📋 Shift History & Audit Log</h2><table class="voucher-table"><thead><tr><th>Cashier Name</th><th>Clock In</th><th>Clock Out</th><th>Total Shift Sales</th><th>Status</th></tr></thead><tbody id="shifts-list"><tr><td colspan="5">Loading shift records...</td></tr></tbody></table></div>
     </div>
 
-    <div id="sec-network" class="app-section">
-        <div class="dashboard-grid">
-          <div class="metric-card" style="border-left: 4px solid #0ea5e9;"><div class="metric-title">Total Cafe Download</div><div class="metric-value" id="total-down-speed" style="color: #0ea5e9;">0.00 Mbps</div></div>
-          <div class="metric-card" style="border-left: 4px solid #f59e0b;"><div class="metric-title">Total Cafe Upload</div><div class="metric-value" id="total-up-speed" style="color: #f59e0b;">0.00 Mbps</div></div>
-          <div class="metric-card" style="border-left: 4px solid #10b981;"><div class="metric-title">Active Connections</div><div class="metric-value" id="network-active-count">0</div></div>
+   <div id="sec-network" class="app-section">
+    <div class="dashboard-grid">
+        <div class="metric-card" style="border-left: 4px solid #0ea5e9;">
+            <div class="metric-title">Total Cafe Download</div>
+            <div class="metric-value" id="total-down-speed" style="color: #0ea5e9;">0.00 Mbps</div>
         </div>
-        <div class="table-card" style="width: 100%; max-width: 100%;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"><h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;"><span class="live-dot"></span> Connected Devices</h2><span style="color: #10b981; font-size: 0.85rem;">(Live Data)</span></div><table class="voucher-table"><thead><tr><th>Status</th><th>Voucher Code</th><th>Device MAC/IP</th><th>⬇️ Download</th><th>⬆️ Upload</th><th>⏳ Time Left</th><th>Action</th></tr></thead><tbody id="live-network-list"><tr><td colspan="7" style="text-align: center; color: #9ca3af;">Loading telemetry data...</td></tr></tbody></table></div>
+        <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+            <div class="metric-title">Total Cafe Upload</div>
+            <div class="metric-value" id="total-up-speed" style="color: #f59e0b;">0.00 Mbps</div>
+        </div>
+        <div class="metric-card" style="border-left: 4px solid #10b981;">
+            <div class="metric-title">Active Connections</div>
+            <div class="metric-value" id="network-active-count">0</div>
+        </div>
+        <div class="metric-card" style="border-left: 4px solid #ef4444;">
+            <div class="metric-title">Ghost Sessions Pruned</div>
+            <div class="metric-value" id="ghost-pruned-count" style="color: #ef4444;">0</div>
+        </div>
     </div>
+
+    <div class="table-card" style="width: 100%; max-width: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0; color: #111827; font-size: 1.2rem; font-weight: 600;">
+                <span class="live-dot"></span> Connected Devices
+            </h2>
+            <span style="color: #10b981; font-size: 0.85rem;">(Live Data)</span>
+        </div>
+        <table class="voucher-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Voucher Code</th>
+                    <th>Device MAC/IP</th>
+                    <th>⬇️ Download</th>
+                    <th>⬆️ Upload</th>
+                    <th>⏳ Time Left</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="live-network-list">
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #9ca3af;">Loading telemetry data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
   
     <div id="sec-finances" class="app-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
