@@ -51,11 +51,12 @@ exports.handler = async function(event, context) {
             }
         }
 
-        // ==========================================
-        // 3. PROCESS WI-FI TOKENS
+       // ==========================================
+        // 3. PROCESS WI-FI TOKENS (OPTIMIZED)
         // ==========================================
         if (!hasAction) {
-            const fetchUrl = `${databaseURL}/${wifiPath}.json`;
+            // NEW: Query Firebase for ONLY unsynced tokens, limited to 1 at a time
+            const fetchUrl = `${databaseURL}/${wifiPath}.json?orderBy="synced"&equalTo=null&limitToFirst=1`;
             const response = await fetch(fetchUrl);
             const vouchers = await response.json();
 
