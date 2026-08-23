@@ -660,6 +660,20 @@ window.voidToken = function(voucherKey, code, price, label) {
     push(ref(db, 'cafes/blessmas/commands/kick'), { code: code, mac: 'VOID', timestamp: Date.now() }); alert(`Token ${code} has been voided. Shift cash adjusted.`);
 }
 
+window.forceResync = function(voucherKey) {
+    if(!confirm("Push this token to the router again?")) return;
+    
+    // Removing 'synced' flags it for Netlify to pick up on the next cycle
+    update(ref(db, 'cafes/blessmas/wifi_vouchers/' + voucherKey), { 
+        synced: null 
+    }).then(() => {
+        alert("Token queued for resync. Ask the client to try connecting in 10 seconds.");
+    }).catch((error) => {
+        console.error("Resync failed:", error);
+        alert("Error queuing resync. Check connection.");
+    });
+}
+
 window.printReceipt = function(code, label, price, uptime, data, timeStr) { 
     const priceDisplay = price > 0 ? `$${parseFloat(price).toFixed(2)}` : 'FREE'; const printWindow = window.open('', '_blank', 'width=300,height=450'); 
     printWindow.document.write(`<html><head><style>body { font-family: monospace; text-align: center; width: 58mm; color: black; margin: 0 auto; } h2 { margin: 5px 0; font-size: 1.2rem; } .code { font-size: 2.2rem; font-weight: bold; margin: 10px 0; border: 2px dashed #000; padding: 5px; } p { margin: 5px 0; font-size: 0.9rem; } .details { text-align: left; font-size: 0.85rem; margin: 10px 0; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 5px 0; } .details div { display: flex; justify-content: space-between; margin-bottom: 2px; }</style></head><body><h2>Blessmas Wi-Fi</h2><p>Wi-Fi Access Code</p><div class="code">${code}</div><div class="details"><div><span>Package:</span> <strong>${label}</strong></div><div><span>Amount:</span> <strong>${priceDisplay}</strong></div><div><span>Time Limit:</span> <strong>${uptime && uptime !== 'undefined' ? uptime : 'Unlimited'}</strong></div><div><span>Data Limit:</span> <strong>${data && data !== 'undefined' ? data : 'Unlimited'}</strong></div></div><p>Generated: ${timeStr}</p><hr><p>Powered by IntraCore.Digital</p></body></html>`); 
