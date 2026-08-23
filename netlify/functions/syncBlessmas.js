@@ -38,7 +38,7 @@ exports.handler = async function(event, context) {
         if (kickJobs && !kickJobs.error) {
             for (const [id, kick] of Object.entries(kickJobs)) {
                 if (kick.processed === false || !kick.processed) {
-                    outputString = `${kick.code},KICK,0`;
+                    outputString = `${kick.code},KICK,0,default`;
                     hasAction = true;
 
                     await fetch(`${databaseURL}/${kickPath}/${id}.json`, {
@@ -52,7 +52,7 @@ exports.handler = async function(event, context) {
         }
 
        // ==========================================
-        // 3. PROCESS WI-FI TOKENS (ANTI-JAMMING OPTIMIZED)
+        // 3. PROCESS WI-FI TOKENS (ANTI-JAMMING & SPEED PROFILES)
         // ==========================================
         if (!hasAction) {
             // Grab up to 5 unsynced items just in case dead/voided tokens are blocking the line
@@ -76,6 +76,9 @@ exports.handler = async function(event, context) {
                         const code = voucher.code;
                         const uptime = (voucher.uptimeLimit && voucher.uptimeLimit.toLowerCase() !== 'unlimited') ? voucher.uptimeLimit : '0';
                         
+                        // NEW: Extract the speed profile
+                        const speed = voucher.speedLimit || 'default';
+                        
                         let bytes = 0;
                         if (voucher.dataLimit && voucher.dataLimit.toLowerCase() !== 'unlimited') {
                             let rawData = voucher.dataLimit.toUpperCase().replace(/\s+/g, '');
@@ -86,7 +89,8 @@ exports.handler = async function(event, context) {
                             }
                         }
                         
-                        outputString = `${code},${uptime},${bytes}`;
+                        // NEW: Output string now includes 4 items: code, uptime, bytes, speed
+                        outputString = `${code},${uptime},${bytes},${speed}`;
                         hasAction = true;
                         
                         // We found our 1 valid token for this cycle, exit the loop so the router processes it
