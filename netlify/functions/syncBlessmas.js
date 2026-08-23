@@ -52,42 +52,44 @@ exports.handler = async function(event, context) {
         }
 
        // ==========================================
-        // 3. PROCESS WI-FI TOKENS (OPTIMIZED)
+        // 3. PROCESS WI-FI TOKENS (ANTI-JAMMING OPTIMIZED)
         // ==========================================
         if (!hasAction) {
-            // NEW: Query Firebase for ONLY unsynced tokens, limited to 1 at a time
-            const fetchUrl = `${databaseURL}/${wifiPath}.json?orderBy="synced"&equalTo=null&limitToFirst=1`;
+            // Grab up to 5 unsynced items just in case dead/voided tokens are blocking the line
+            const fetchUrl = `${databaseURL}/${wifiPath}.json?orderBy="synced"&equalTo=null&limitToFirst=5`;
             const response = await fetch(fetchUrl);
             const vouchers = await response.json();
 
             if (vouchers && !vouchers.error) {
                 for (const [id, voucher] of Object.entries(vouchers)) {
-                    if (voucher.status === 'active' && !voucher.synced) {
+                    
+                    // 1. Immediately mark WHATEVER we grabbed as synced to clear the traffic jam
+                    const updateUrl = `${databaseURL}/${wifiPath}/${id}.json`;
+                    await fetch(updateUrl, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ synced: true }), 
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    // 2. If it is actually an active token, prepare it for the router and stop looking
+                    if (voucher.status === 'active') {
                         const code = voucher.code;
                         const uptime = (voucher.uptimeLimit && voucher.uptimeLimit.toLowerCase() !== 'unlimited') ? voucher.uptimeLimit : '0';
                         
-                        // Calculate Data Limit Bytes
                         let bytes = 0;
                         if (voucher.dataLimit && voucher.dataLimit.toLowerCase() !== 'unlimited') {
                             let rawData = voucher.dataLimit.toUpperCase().replace(/\s+/g, '');
                             if (rawData.includes('GB') || rawData.includes('G')) {
-                                let val = parseFloat(rawData.replace(/[A-Z]/g, ''));
-                                bytes = Math.floor(val * 1073741824); 
+                                bytes = Math.floor(parseFloat(rawData.replace(/[A-Z]/g, '')) * 1073741824); 
                             } else if (rawData.includes('MB') || rawData.includes('M')) {
-                                let val = parseFloat(rawData.replace(/[A-Z]/g, ''));
-                                bytes = Math.floor(val * 1048576); 
+                                bytes = Math.floor(parseFloat(rawData.replace(/[A-Z]/g, '')) * 1048576); 
                             }
                         }
                         
                         outputString = `${code},${uptime},${bytes}`;
                         hasAction = true;
-
-                        const updateUrl = `${databaseURL}/${wifiPath}/${id}.json`;
-                        await fetch(updateUrl, {
-                            method: 'PATCH',
-                            body: JSON.stringify({ synced: true }), 
-                            headers: { 'Content-Type': 'application/json' }
-                        });
+                        
+                        // We found our 1 valid token for this cycle, exit the loop so the router processes it
                         break; 
                     }
                 }
