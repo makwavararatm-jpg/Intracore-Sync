@@ -641,8 +641,13 @@ window.renderVoucherTable = function() {
         else { statusBadgeHTML = `<span class="badge-active-small" style="background:#e0f2fe; color:#0284c7;">READY</span>`; canVoid = true; }
         
         const safeLabel = v.label ? String(v.label).replace(/'/g, "\\'") : 'Token';
-        let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${safeLabel}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
+       let actionButtons = `<button class="btn-print" onclick="printReceipt('${v.code}', '${safeLabel}', ${v.price || 0}, '${v.uptimeLimit || 'Unlimited'}', '${v.dataLimit || 'Unlimited'}', '${dateStr}')">🖨️ Print</button>`;
+        
+        // NEW: Force Resync button
+        actionButtons += `<button class="btn-print" style="margin-left:5px; border-color:#0ea5e9; color:#0ea5e9;" onclick="forceResync('${v.key}')" title="Force Router to Resync">🔄 Resync</button>`;
+        
         if (canVoid) actionButtons += `<button class="btn-action" style="font-size:0.8rem; background:#fee2e2; color:#ef4444; padding:4px 8px; border:1px solid #fca5a5; border-radius:4px; margin-left:5px;" onclick="voidToken('${v.key}', '${v.code}', ${v.price || 0}, '${safeLabel}')">🚫 Void</button>`;
+        
         tableHTML += `<tr><td style="font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #111827;">${v.code}</td><td style="font-weight:500;">${v.label}</td><td>${deliveryBadge}${cashierDisplay}</td><td>${statusBadgeHTML}</td><td style="color:#6b7280; font-size:0.8rem;">${new Date(v.createdAt).toLocaleDateString([], {month:'short', day:'numeric'})} ${dateStr}</td><td style="color:#374151; font-size:0.8rem; font-weight:500;">${expiryText}</td><td>${actionButtons}</td></tr>`; 
     }); 
     tbody.innerHTML = tableHTML;
